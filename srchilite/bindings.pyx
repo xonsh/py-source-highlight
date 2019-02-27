@@ -37,6 +37,7 @@ cdef class _LangMap:
         else:
             cpp_path = str_to_cpp(path)
             self.ptx = new cpp_srchilite.LangMap(cpp_path, cpp_filename)
+        self.ptx.open()
 
     def __dealloc__(self):
         del self.ptx

@@ -1,4 +1,5 @@
 """Python bindings for C++ srchilite"""
+# distutils: language=c++
 from libcpp.string cimport string as std_string
 
 cimport cpp_srchilite

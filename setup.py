@@ -25,7 +25,7 @@ def main(args=None):
         url="https://github.com/xonsh/py-source-highlight",
         platforms="Cross Platform",
         classifiers=["Programming Language :: Python :: 3"],
-        ext_modules=cythonize(extensions, language="c++"),
+        ext_modules=cythonize(extensions),
         zip_safe=False,
     )
 

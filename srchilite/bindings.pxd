@@ -1,4 +1,5 @@
 """Python bindings for C++ srchilite"""
+# distutils: language=c++
 from libcpp.string cimport string as std_string
 
 cimport cpp_srchilite
@@ -11,4 +12,4 @@ cdef object std_string_to_py(std_string x)
 
 
 cdef class _LangMap:
-    cdef cpp_cyclus.LangMap* ptx
+    cdef cpp_srchilite.LangMap* ptx

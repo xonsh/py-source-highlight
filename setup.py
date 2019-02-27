@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import os
 from distutils.core import setup
 from distutils.extension import Extension
@@ -5,7 +6,7 @@ from distutils.extension import Extension
 from Cython.Build import cythonize
 
 
-extensions = [Extension("srchilite", ["srchilite/*.pyx"])]
+extensions = [Extension("bindings", ["srchilite/bindings.pyx"], libraries=["source-highlight"])]
 
 
 def main(args=None):
@@ -19,12 +20,13 @@ def main(args=None):
         long_description=readme,
         license="BSD",
         author="Anthony Scopatz",
-        maintainer="Anthony Scopatz",
-        author_email="scopatz@gmail.com",
-        url="https://github.com/xonsh/xonsh",
+        maintainer="Xonsh Core Developers",
+        author_email="xonsh@googlegroups.org",
+        url="https://github.com/xonsh/py-source-highlight",
         platforms="Cross Platform",
         classifiers=["Programming Language :: Python :: 3"],
         ext_modules=cythonize(extensions, language="c++"),
+        zip_safe=False,
     )
 
 

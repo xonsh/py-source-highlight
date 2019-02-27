@@ -6,7 +6,9 @@ from distutils.extension import Extension
 from Cython.Build import cythonize
 
 
-extensions = [Extension("bindings", ["srchilite/bindings.pyx"], libraries=["source-highlight"])]
+extensions = [
+    Extension("srchilite.bindings", ["srchilite/bindings.pyx"], libraries=["source-highlight"])
+]
 
 
 def main(args=None):
@@ -25,8 +27,11 @@ def main(args=None):
         url="https://github.com/xonsh/py-source-highlight",
         platforms="Cross Platform",
         classifiers=["Programming Language :: Python :: 3"],
-        ext_modules=cythonize(extensions),
+        ext_modules=cythonize(extensions, language_level=3),
         zip_safe=False,
+        packages=["srchilite"],
+        package_dir={"srchilite": "srchilite"},
+        package_data={"srchilite": ["*.pxd", "*.so", "*.dylib"]},
     )
 
 

@@ -1,5 +1,5 @@
-"""Bindings to the C++ library for srchilite"""
 # distutils: language=c++
+"""Bindings to the C++ library for srchilite"""
 from libcpp.set cimport set as std_set
 from libcpp.string cimport string as std_string
 

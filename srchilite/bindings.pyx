@@ -1,8 +1,9 @@
-"""Python bindings for C++ srchilite"""
 # distutils: language=c++
+"""Python bindings for C++ srchilite"""
 from libcpp.string cimport string as std_string
 
-cimport cpp_srchilite
+from srchilite cimport cpp_srchilite
+from srchilite cimport bindings
 
 
 #
@@ -55,4 +56,3 @@ class LangMap(_LangMap):
     path : str, optional
         The path where to search for the filename
     """
-

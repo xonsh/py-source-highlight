@@ -1,9 +1,10 @@
 # distutils: language=c++
 """Bindings to the C++ library for srchilite"""
-from libc.stdint cimport uint32_t
 from libcpp.map cimport map as std_map
 from libcpp.set cimport set as std_set
 from libcpp.string cimport string as std_string
+from libcpp cimport bool as cpp_bool
+from libc.stdint cimport uint32_t
 
 #
 # boost shared pointers

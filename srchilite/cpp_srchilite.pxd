@@ -73,12 +73,6 @@ cdef extern from "srchilite/langdefmanager.h" namespace "srchilite":
         HighlightStatePtr getHighlightState(const std_string&, const std_string&)
 
 
-cdef extern from "srchilite/sourcehighlighter.h" namespace "srchilite":
-    cdef cppclass SourceHighlighter:
-        SourceHighlighter(HighlightStatePtr)
-        void highlightParagraph(const std_string &)
-
-
 cdef extern from "srchilite/formatterparams.h" namespace "srchilite":
     cdef cppclass FormatterParams:
         FormatterParams(const std_string&)
@@ -99,3 +93,11 @@ cdef extern from "srchilite/formatter.h" namespace "srchilite":
 cdef extern from "srchilite/formattermanager.h" namespace "srchilite":
     cdef cppclass FormatterManager:
         FormatterManager(FormatterPtr)
+
+
+cdef extern from "srchilite/sourcehighlighter.h" namespace "srchilite":
+    cdef cppclass SourceHighlighter:
+        SourceHighlighter(HighlightStatePtr)
+        void highlightParagraph(const std_string&)
+        void setFormatterParams(FormatterParams*)
+        void setFormatterManager(const FormatterManager*)

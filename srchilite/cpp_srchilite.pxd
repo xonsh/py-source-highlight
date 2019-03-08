@@ -39,11 +39,6 @@ cdef extern from "srchilite/regexrulefactory.h" namespace "srchilite":
         RegexRuleFactory()
 
 
-cdef extern from "srchilite/langdefmanager.h" namespace "srchilite":
-    cdef cppclass LangDefManager:
-        LangDefManager(HighlightRuleFactory*)
-
-
 cdef extern from "srchilite/langmap.h" namespace "srchilite":
     cdef cppclass LangMap:
         LangMap(const std_string&)
@@ -116,3 +111,6 @@ cdef extern from "helpers.hpp" namespace "pysrchilite":
         LexerGetTokensFormatter(const std_string, GetTokensPtr)
 
     ctypedef shared_ptr[LexerGetTokensFormatter] LexerGetTokensFormatterPtr
+
+    GetTokensPtr get_tokens(const std_string, const std_string path,
+                            const std_string file)

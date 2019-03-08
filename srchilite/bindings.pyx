@@ -3,11 +3,16 @@
 from libcpp.map cimport map as std_map
 from libcpp.set cimport set as std_set
 from libcpp.string cimport string as std_string
+from libcpp.utility cimport pair as std_pair
+
+from cython.operator cimport dereference as deref
 
 from srchilite cimport cpp_srchilite
 from srchilite cimport bindings
 
+import os
 from collections.abc import Mapping
+
 
 
 #
@@ -77,3 +82,30 @@ class LangMap(_LangMap, Mapping):
     path : str, optional
         The path where to search for the filename
     """
+
+#
+# API functions
+#
+
+def get_tokens(str code, str filename, object path=None):
+    """Returns token list from code in a give language
+    """
+    cdef std_string cpp_code = str_to_cpp(code)
+    cdef std_string cpp_filename
+    cdef std_string cpp_path
+    cdef cpp_srchilite.GetTokensPtr cpp_tokens
+    cdef std_pair[std_string, std_string] cpp_token
+    if path is None:
+        path, filename = os.path.split(filename)
+    cpp_filename = str_to_cpp(filename)
+    cpp_path = str_to_cpp(path)
+    cpp_tokens = cpp_srchilite.get_tokens(cpp_code, cpp_path, cpp_filename)
+    tokens = []
+    for cpp_token in deref(cpp_tokens):
+        first = std_string_to_py(cpp_token.first)
+        second = std_string_to_py(cpp_token.second)
+        tokens.append((first, second))
+    return tokens
+#
+# Mostly Pygments compatible API
+#

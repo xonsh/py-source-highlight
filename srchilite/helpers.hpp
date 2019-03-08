@@ -31,5 +31,9 @@ class LexerGetTokensFormatter: public srchilite::Formatter {
 
 typedef boost::shared_ptr<LexerGetTokensFormatter> LexerGetTokensFormatterPtr;
 
+
+GetTokensPtr get_tokens(const std::string code, const std::string path,
+                        const std::string file);
+
 } // end pysrchilite
 #endif

@@ -3,6 +3,8 @@
 from libcpp.map cimport map as std_map
 from libcpp.set cimport set as std_set
 from libcpp.string cimport string as std_string
+from libcpp.vector cimport vector as std_vector
+from libcpp.utility cimport pair as std_pair
 from libcpp cimport bool as cpp_bool
 from libc.stdint cimport uint32_t
 
@@ -101,3 +103,16 @@ cdef extern from "srchilite/sourcehighlighter.h" namespace "srchilite":
         void highlightParagraph(const std_string&)
         void setFormatterParams(FormatterParams*)
         void setFormatterManager(const FormatterManager*)
+
+#
+# Helper classes
+#
+
+cdef extern from "helpers.hpp" namespace "pysrchilite":
+
+    ctypedef shared_ptr[std_vector[std_pair[std_string, std_string]]] GetTokensPtr
+
+    cdef cppclass LexerGetTokensFormatter:
+        LexerGetTokensFormatter(const std_string, GetTokensPtr)
+
+    ctypedef shared_ptr[LexerGetTokensFormatter] LexerGetTokensFormatterPtr

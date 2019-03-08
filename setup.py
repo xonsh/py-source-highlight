@@ -7,7 +7,7 @@ from Cython.Build import cythonize
 
 
 extensions = [
-    Extension("srchilite.bindings", ["srchilite/bindings.pyx"], libraries=["source-highlight"])
+    Extension("srchilite.bindings", ["srchilite/bindings.pyx", "srchilite/helpers.cpp"], libraries=["source-highlight"])
 ]
 
 

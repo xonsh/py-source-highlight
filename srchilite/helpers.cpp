@@ -1,21 +1,15 @@
-#include "helpers.h"
+#include "helpers.hpp"
 
 namespace pysrchilite {
 
-virtual void LexerGetTokensFormatter::format(
+void LexerGetTokensFormatter::format(
     const std::string &s,
-    const srchilite::FormatterParams *params = 0)
+    const srchilite::FormatterParams *params)
 {
-  // do not print anything string for empty strings
+  // do not add anything string for empty strings
   if (!s.size())
     return;
-             if (elem != "normal" || !s.size()) {
-                 std::cout << elem << ": " << s;
-                 if (params)
-                     std::cout << ", start: " << params->start;
-                 std::cout << std::endl;
-             }
-         }
+  tokens->push_back(std::make_pair(elem, s));
 };
 
 } // end pysrchilite

@@ -11,7 +11,7 @@ from srchilite cimport cpp_srchilite
 from srchilite cimport bindings
 
 import os
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 
 
@@ -86,6 +86,89 @@ class LangMap(_LangMap, Mapping):
 #
 # API functions
 #
+class _TokenType(Sequence):
+    # Originally forked from Pygments
+    # Copyright (c) 2006-2017 by the respective authors (see AUTHORS file).
+    # All rights reserved.
+    parent = None
+
+    def __init__(self, val=()):
+        self.val = val
+        self._name = "Token"
+        if val:
+            self._name += "." + ".".join(val)
+        self.subtypes = set()
+
+    def __getitem__(self, key):
+        return self.val[key]
+
+    def __len__(self):
+        return len(self.val)
+
+    def __contains__(self, item):
+        return self is item or (
+            type(item) is self.__class__ and
+            item[:len(self)] == self
+        )
+
+    def __getattr__(self, name):
+        #if not name or not name[0].isupper():
+        #    return tuple.__getattribute__(self, name)
+        new = _TokenType(self.val + (name,))
+        self.subtypes.add(new)
+        #setattr(self, val, new)
+        new.parent = self
+        return new
+
+    def __repr__(self):
+        return 'Token' + (self and '.' or '') + '.'.join(self)
+
+    def __copy__(self):
+        # These instances are supposed to be singletons
+        return self
+
+    def __deepcopy__(self, memo):
+        # These instances are supposed to be singletons
+        return self
+
+    def split(self):
+        buf = []
+        node = self
+        while node is not None:
+            buf.append(node)
+            node = node.parent
+        buf.reverse()
+        return buf
+
+
+
+Token = _TokenType()
+
+
+cdef dict _STRING_TO_TOKEN_CACHE = {"": Token}
+
+
+def string_to_token(str s):
+    """Convert a string into a token. For example, "String.Double"
+    becomes Token.Literal.String.Double. The empty string becomes Token.
+    """
+    # Originally forked from Pygments
+    # Copyright (c) 2006-2017 by the respective authors (see AUTHORS file).
+    # All rights reserved.
+    if s in _STRING_TO_TOKEN_CACHE:
+        return _STRING_TO_TOKEN_CACHE[s]
+    if len(s) == 0:
+        return Token
+    node = Token
+    for item in s.split('.'):
+        node = getattr(node, item)
+    _STRING_TO_TOKEN_CACHE[s] = node
+    return node
+
+
+# Here for Pygements API compatibility
+string_to_tokentype = string_to_token
+
 
 def get_tokens(str code, str filename, object path=None):
     """Returns token list from code in a give language
@@ -103,8 +186,9 @@ def get_tokens(str code, str filename, object path=None):
     tokens = []
     for cpp_token in deref(cpp_tokens):
         first = std_string_to_py(cpp_token.first)
+        token = string_to_token(first)
         second = std_string_to_py(cpp_token.second)
-        tokens.append((first, second))
+        tokens.append((token, second))
     return tokens
 #
 # Mostly Pygments compatible API

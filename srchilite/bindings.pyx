@@ -93,8 +93,8 @@ def get_tokens(str code, str filename, object path=None):
     cdef std_string cpp_code = str_to_cpp(code)
     cdef std_string cpp_filename
     cdef std_string cpp_path
-    cdef cpp_srchilite.GetTokensPtr cpp_tokens
-    cdef std_pair[std_string, std_string] cpp_token
+    cdef cpp_srchilite.TokenPairsPtr cpp_tokens
+    cdef cpp_srchilite.TokenPair cpp_token
     if path is None:
         path, filename = os.path.split(filename)
     cpp_filename = str_to_cpp(filename)

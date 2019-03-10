@@ -12,16 +12,21 @@
 
 namespace pysrchilite {
 
-typedef std::vector<std::pair<std::string, std::string> > GetTokensType;
-typedef boost::shared_ptr<GetTokensType> GetTokensPtr;
+typedef std::pair<std::string, std::string> TokenPair;
+typedef std::vector<TokenPair> TokenPairs;
+typedef boost::shared_ptr<TokenPairs> TokenPairsPtr;
+
+extern TokenPairs ELEMS_TO_TOKENS;
+
+void fill_elems_to_tokens_();
 
 class LexerGetTokensFormatter: public srchilite::Formatter {
  private:
   std::string elem;
-  GetTokensPtr tokens;
+  TokenPairsPtr tokens;
 
  public:
-  LexerGetTokensFormatter(const std::string &elem_, GetTokensPtr tokens_) :
+  LexerGetTokensFormatter(const std::string &elem_, TokenPairsPtr tokens_) :
     elem(elem_),
     tokens(tokens_)
     {};
@@ -33,7 +38,7 @@ class LexerGetTokensFormatter: public srchilite::Formatter {
 typedef boost::shared_ptr<LexerGetTokensFormatter> LexerGetTokensFormatterPtr;
 
 
-GetTokensPtr get_tokens(const std::string code, const std::string path,
+TokenPairsPtr get_tokens(const std::string code, const std::string path,
                         const std::string file);
 
 } // end pysrchilite

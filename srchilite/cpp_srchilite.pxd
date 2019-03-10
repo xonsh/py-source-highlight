@@ -105,12 +105,14 @@ cdef extern from "srchilite/sourcehighlighter.h" namespace "srchilite":
 
 cdef extern from "helpers.hpp" namespace "pysrchilite":
 
-    ctypedef shared_ptr[std_vector[std_pair[std_string, std_string]]] GetTokensPtr
+    ctypedef std_pair[std_string, std_string] TokenPair
+    ctypedef std_vector[TokenPair] TokenPairs
+    ctypedef shared_ptr[TokenPairs] TokenPairsPtr
 
     cdef cppclass LexerGetTokensFormatter:
         LexerGetTokensFormatter(const std_string, GetTokensPtr)
 
     ctypedef shared_ptr[LexerGetTokensFormatter] LexerGetTokensFormatterPtr
 
-    GetTokensPtr get_tokens(const std_string, const std_string path,
-                            const std_string file)
+    TokenPairsPtr get_tokens(const std_string, const std_string path,
+                             const std_string file)

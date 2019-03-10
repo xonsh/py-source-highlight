@@ -11,7 +11,7 @@ from srchilite cimport cpp_srchilite
 from srchilite cimport bindings
 
 import os
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping, Sequence, Hashable
 
 
 
@@ -86,7 +86,7 @@ class LangMap(_LangMap, Mapping):
 #
 # API functions
 #
-class _TokenType(Sequence):
+class _TokenType(Sequence, Hashable):
     # Originally forked from Pygments
     # Copyright (c) 2006-2017 by the respective authors (see AUTHORS file).
     # All rights reserved.
@@ -98,6 +98,7 @@ class _TokenType(Sequence):
         if val:
             self._name += "." + ".".join(val)
         self.subtypes = set()
+        self._subtype_map = {}
 
     def __getitem__(self, key):
         return self.val[key]
@@ -112,12 +113,13 @@ class _TokenType(Sequence):
         )
 
     def __getattr__(self, name):
-        #if not name or not name[0].isupper():
-        #    return tuple.__getattribute__(self, name)
-        new = _TokenType(self.val + (name,))
-        self.subtypes.add(new)
-        #setattr(self, val, new)
+        spec = self.val + (name,)
+        if spec in self._subtype_map:
+            return self._subtype_map[spec]
+        new = _TokenType(spec)
         new.parent = self
+        self.subtypes.add(new)
+        self._subtype_map[spec] = new
         return new
 
     def __repr__(self):
@@ -131,6 +133,9 @@ class _TokenType(Sequence):
         # These instances are supposed to be singletons
         return self
 
+    def __hash__(self):
+        return hash(self.val)
+
     def split(self):
         buf = []
         node = self
@@ -139,7 +144,6 @@ class _TokenType(Sequence):
             node = node.parent
         buf.reverse()
         return buf
-
 
 
 Token = _TokenType()

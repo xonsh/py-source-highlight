@@ -12,7 +12,8 @@
 
 namespace pysrchilite {
 
-typedef boost::shared_ptr<std::vector<std::pair<std::string, std::string> > > GetTokensPtr;
+typedef std::vector<std::pair<std::string, std::string> > GetTokensType;
+typedef boost::shared_ptr<GetTokensType> GetTokensPtr;
 
 class LexerGetTokensFormatter: public srchilite::Formatter {
  private:

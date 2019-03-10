@@ -27,7 +27,7 @@ GetTokensPtr get_tokens(const std::string code, const std::string path,
   srchilite::SourceHighlighter highlighter(langDefManager.getHighlightState(
     path, file));
   // make format manager
-  GetTokensPtr tokens;
+  GetTokensPtr tokens (new GetTokensType);
   srchilite::FormatterManager formatterManager(LexerGetTokensFormatterPtr(
     new LexerGetTokensFormatter("Unknown", tokens)));
   // fill up the format manager

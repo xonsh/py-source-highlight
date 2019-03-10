@@ -131,7 +131,7 @@ TokenPairsPtr get_tokens(const std::string code, const std::string path,
   std::stringstream codestream(code);
   while (std::getline(codestream, line)) {
     highlighter.highlightParagraph(line);
-    tokens->back().second += "\n";
+    tokens->push_back(std::make_pair("Text", "\n"));
   }
   return tokens;
 }

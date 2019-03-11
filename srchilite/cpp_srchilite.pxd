@@ -99,6 +99,12 @@ cdef extern from "srchilite/sourcehighlighter.h" namespace "srchilite":
         void setFormatterParams(FormatterParams*)
         void setFormatterManager(const FormatterManager*)
 
+cdef extern from "srchilite/settings.h" namespace "srchilite":
+    cdef cppclass Settings:
+        Settings()
+        const std_string retrieveDataDir()
+        const std_string retrieveDataDir(cpp_bool)
+
 #
 # Helper classes
 #

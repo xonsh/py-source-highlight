@@ -4,6 +4,7 @@ from libcpp.map cimport map as std_map
 from libcpp.set cimport set as std_set
 from libcpp.string cimport string as std_string
 from libcpp.utility cimport pair as std_pair
+from libcpp cimport bool as cpp_bool
 
 from cython.operator cimport dereference as deref
 
@@ -26,13 +27,13 @@ cdef std_string str_to_cpp(object x):
 
 
 cdef object std_string_to_py(std_string x):
-    pyx = x
+    pyx = x.c_str()
     pyx = pyx.decode()
     return pyx
 
 
 #
-# Binding classes
+# Binding classes & functions
 #
 
 
@@ -82,6 +83,17 @@ class LangMap(_LangMap, Mapping):
     path : str, optional
         The path where to search for the filename
     """
+
+
+def retrieve_data_dir(bint reload=False):
+    """Gets the data dir set by the $SOURCE_HIGHLIGHT_DATADIR,
+    in the configuration file (~/.source-highlight/source-highlight.conf),
+    or hard-coded into the library ($PREFIX/share/source-highlight).
+    """
+    cdef cpp_srchilite.Settings settings = cpp_srchilite.Settings()
+    cdef std_string cpp_rtn = settings.retrieveDataDir(reload)
+    rtn = std_string_to_py(cpp_rtn)
+    return rtn
 
 #
 # API functions

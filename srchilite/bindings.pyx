@@ -199,7 +199,7 @@ def string_to_token(str s):
 string_to_tokentype = string_to_token
 
 
-def get_tokens(str code, str filename, object path=None):
+def get_tokens(str code, str lang="", str filename="", object path=None):
     """Returns token list from code in a give language
     """
     cdef std_string cpp_code = str_to_cpp(code)
@@ -207,7 +207,12 @@ def get_tokens(str code, str filename, object path=None):
     cdef std_string cpp_path
     cdef cpp_srchilite.TokenPairsPtr cpp_tokens
     cdef cpp_srchilite.TokenPair cpp_token
-    if path is None:
+    if lang:
+        path, filename = os.path.split(LANG_MAP_CACHE[lang])
+    elif not filename:
+        raise ValueError("Either 'lang' or 'filename' must be given "
+                         "and non-empty")
+    elif path is None:
         path, filename = os.path.split(filename)
     cpp_filename = str_to_cpp(filename)
     cpp_path = str_to_cpp(path)

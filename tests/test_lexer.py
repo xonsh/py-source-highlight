@@ -3,7 +3,7 @@ from srchilite import Token, get_tokens
 
 def test_get_tokens_python():
     code = "print('hello')\n" "x = 1\n"
-    obs = get_tokens(code, "/home/scopatz/miniconda/share/source-highlight/python.lang")
+    obs = get_tokens(code, "py")
     exp = [
         (Token.Keyword, "print"),
         (Token.Literal.String.Symbol, "("),

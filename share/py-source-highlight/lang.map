@@ -1,4 +1,9 @@
 Diff = diff.lang
+INI = ini.lang
+cfg = ini.lang
 diff = diff.lang
+dosini = ini.lang
+inf = ini.lang
+ini = ini.lang
 patch = diff.lang
 udiff = diff.lang

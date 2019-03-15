@@ -7,12 +7,14 @@ import os
 from pygments import lexers
 from pygments import styles
 
+from xonsh.color_tools import make_palette, find_closest_color, rgb_to_256
+
 
 BASE_DIR = "share/py-source-highlight"
 
 
 def token_to_rulename(token):
-    return str(token)  # [6:].lower().replace(".", '_')
+    return str(token).replace(".", '_')
 
 
 #
@@ -24,9 +26,14 @@ def regex_to_rule(pyregex, rulename):
     rule = rulename
     regex = pyregex
     if pyregex.endswith("\\n"):
-        rule += " start"
         regex = regex[:-2]
-    rule += ' = "' + regex + '"'
+        if regex.endswith('.*'):
+            regex = regex[:-2]
+        if not regex:
+            return None
+        rule += " start '" + regex + "'"
+    else:
+        rule += " = '" + regex + "'"
     return rule
 
 
@@ -36,6 +43,7 @@ def genlang(lexer):
     for pyregex, token in lexer.tokens["root"]:
         rulename = token_to_rulename(token)
         lines.append(regex_to_rule(pyregex, rulename))
+    lines = filter(None, lines)
     lang = "\n".join(lines) + "\n"
     fname = os.path.join(BASE_DIR, lexer.name.lower() + ".lang")
     with open(fname, "w") as f:
@@ -59,13 +67,13 @@ def add_to_lang_map(lexer, base, lang_map):
         lang_map[name.lower()] = base
 
 
-def write_lang_map(lang_map):
-    print("Writing lang.map")
+def write_lang_map(lang_map, base="lang.map"):
+    print("Writing " + base)
     lines = []
     for key, value in sorted(lang_map.items()):
         lines.append(key + " = " + value)
     s = "\n".join(lines) + "\n"
-    fname = os.path.join(BASE_DIR, "lang.map")
+    fname = os.path.join(BASE_DIR, base)
     with open(fname, "w") as f:
         f.write(s)
 
@@ -80,15 +88,6 @@ def genlangs():
         base = os.path.basename(fname)
         add_to_lang_map(lexer, base, lang_map)
     write_lang_map(lang_map)
-
-
-def genstyle(style, style_name):
-    lines = []
-    for token, color in sorted(style.styles.items()):
-        rulename = token_to_rulename(token)
-
-    fname = style_name + ".style"
-    return fname
 
 
 #
@@ -115,15 +114,114 @@ LOGICAL_COLORS = {
     "darkblue": (0, 0, 170),
     "white": (255, 255, 255),
 }
+MODIFIER_TRANSLATIONS = {
+    "bold": "b",
+    "italic": "i",
+    "underline": "u",
+}
+
+
+def pygments_to_srchilite_color(color, hexes_to_names):
+    parts = color.split()
+    translated = []
+    modifiers = []
+    for part in parts:
+        if part.startswith('#'):
+           translated.append(hexes_to_names[part[1:]])
+        elif part.startswith('bg:#'):
+            translated.append('bg:' + hexes_to_names[part[4:]])
+        elif part in MODIFIER_TRANSLATIONS:
+            modifiers.append(MODIFIER_TRANSLATIONS[part])
+        else:
+            raise ValueError(f"could not translate pygments color {color!r}.")
+    if modifiers:
+        translated.append(", ".join(modifiers))
+    rtn = " ".join(translated)
+    return rtn
+
+
+def find_token_color(style, token, color, default="#000000"):
+    while not color:
+        if color is None:
+            color = default
+        elif len(color) == 0:
+            token = token.parent
+            color = style.styles.get(token, default)
+        else:
+            raise ValueError("could not find token color")
+    return color
+
+
+def make_color_translators(palette):
+    """Makes style translation dicts based on a color palette."""
+    names_to_hexes = {}
+    hexes_to_names = {}
+    names_to_short = {}
+    short_to_names = {}
+    for name, t in LOGICAL_COLORS.items():
+        color = find_closest_color(t, palette)
+        names_to_hexes[name] = color
+        hexes_to_names[color] = name
+        short = rgb_to_256(color)[0]
+        names_to_short[name] = short
+        short_to_names[short] = name
+    return names_to_hexes, hexes_to_names, names_to_short, short_to_names
+
+
+def genstyle(style, style_name, hexes_to_names):
+    lines = []
+    fgcolor = '#' + max(hexes_to_names.keys())
+    for token, color in sorted(style.styles.items()):
+        rulename = token_to_rulename(token)
+        color = find_token_color(style, token, color, default=fgcolor)
+        shcolor = pygments_to_srchilite_color(color, hexes_to_names)
+        lines.append(rulename + " " + shcolor +  ";")
+    s = "\n".join(lines) + "\n"
+    fname = os.path.join(BASE_DIR, style_name.lower() + ".style")
+    with open(fname, 'w') as f:
+        f.write(s)
+    return fname
+
+
+ESC256_OUTLANG = """# style map for {style_name}
+extension "txt"
+
+styletemplate "\\x1b[$stylem$text\\x1b[m"
+color "00;38;05;$style"
+
+colormap
+{colors}
+default "255"
+end
+"""
+
+
+def genstyle_esc256outlang(style_name, names_to_short):
+    colors = []
+    for name, short in sorted(names_to_short.items()):
+        colors.append(f'"{name}" "{short}"')
+    colors = "\n".join(colors)
+    s = ESC256_OUTLANG.format(colors=colors, style_name=style_name)
+    fname = os.path.join(BASE_DIR, style_name.lower() + "_esc256.outlang")
+    with open(fname, 'w') as f:
+        f.write(s)
+    return fname
 
 
 def genstyles():
     style_names = ["monokai"]
+    outlang_map = {}
     for style_name in style_names:
         print("Generating style " + style_name)
         style = styles.get_style_by_name(style_name)
-        fname = genstyle(style, style_name)
-
+        palette = make_palette(style.styles.values())
+        translators = make_color_translators(palette)
+        fname = genstyle(style, style_name, translators[1])
+        fname = genstyle_esc256outlang(style_name, translators[2])
+        base = os.path.basename(fname)
+        ol = os.path.splitext(base)[0]
+        outlang_map[ol] = base
+    write_lang_map(outlang_map, base="outlang.map")
 
 #
 # Main

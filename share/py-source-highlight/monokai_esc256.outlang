@@ -1,0 +1,27 @@
+# style map for monokai
+extension "txt"
+
+styletemplate "\x1b[$stylem$text\x1b[m"
+color "00;38;05;$style"
+
+colormap
+"black" "16"
+"blue" "141"
+"brightgreen" "148"
+"brightorange" "148"
+"brown" "95"
+"cyan" "81"
+"darkblue" "16"
+"darkgreen" "16"
+"darkred" "89"
+"gray" "186"
+"green" "148"
+"orange" "148"
+"pink" "197"
+"purple" "89"
+"red" "197"
+"teal" "95"
+"white" "231"
+"yellow" "148"
+default "255"
+end

@@ -12,8 +12,8 @@ from srchilite cimport cpp_srchilite
 from srchilite cimport bindings
 
 import os
-from collections.abc import Mapping, Sequence, Hashable
-
+from collections import ChainMap
+from collections.abc import Mapping, Sequence, Hashable, MutableSequence
 
 
 #
@@ -43,11 +43,18 @@ cdef class _LangMap:
         cdef std_string cpp_path
         cdef std_string cpp_filename = str_to_cpp(filename)
         if path is None:
+            self.path, self.filename = os.path.split(os.path.abspath(filename))
+            self.abspath = os.path.abspath(filename)
             self.ptx = new cpp_srchilite.LangMap(cpp_filename)
         else:
+            self.path = os.path.abspath(path)
+            self.filename = filename
+            self.abspath = os.path.join(path, filename)
             cpp_path = str_to_cpp(path)
             self.ptx = new cpp_srchilite.LangMap(cpp_path, cpp_filename)
-        self.ptx.open()
+        # open if we can
+        if os.path.exists(self.abspath):
+            self.ptx.open()
 
     def __dealloc__(self):
         del self.ptx
@@ -66,7 +73,12 @@ cdef class _LangMap:
         cdef std_string cpp_key = str_to_cpp(key)
         cdef std_string cpp_value = self.ptx.getMappedFileName(cpp_key)
         value = std_string_to_py(cpp_value)
+        value = os.path.join(self.path, value)
         return value
+
+    def open(self):
+        """Opens the file if we can"""
+        self.ptx.open()
 
     def print(self):
         self.ptx.print()
@@ -83,6 +95,7 @@ class LangMap(_LangMap, Mapping):
     path : str, optional
         The path where to search for the filename
     """
+
 
 
 def retrieve_data_dir(bint reload=False):
@@ -207,5 +220,87 @@ def get_tokens(str code, str filename, object path=None):
         tokens.append((token, second))
     return tokens
 #
-# Mostly Pygments compatible API
+# Custom API
 #
+
+class _LangMapCache(ChainMap):
+    """Unified look-up for muliple. The initial empty dictionary is
+    a trap that catches user settings. The lang_map items here are kept
+    in-sync below by PY_SOURCE_HIGHLIGHT_PATH
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._trap = {}
+        self.maps = [self._trap]
+        self.reset_maps()
+
+    def clear(self):
+        """Removes all map entries"""
+        self._trap.clear()
+        self.reset_maps()
+
+    def reset_maps(self):
+        """Resets the maps to the current PY_SOURCE_HIGHLIGHT_PATH"""
+        global PY_SOURCE_HIGHLIGHT_PATH
+        prev = {m.abspath: m for m in self.maps[1:]}
+        maps = [self._trap]
+        for p in PY_SOURCE_HIGHLIGHT_PATH:
+            # get the abspath of the lang map
+            p = os.path.abspath(p)
+            if ".map" == os.path.splitext(p)[1] or os.path.isfile(p):
+                pass
+            else:
+                p = os.path.join(p, "lang.map")
+            # re-add LangMap if it exists, make a new one if it doesn't
+            if p in prev:
+                maps.append(prev[p])
+            else:
+                maps.append(LangMap(filename=p))
+        self.maps = maps
+
+
+class _PySourceHighlightPath(MutableSequence):
+    """A custom list-like for handling $PY_SOURCE_HIGHLIGHT_PATH"""
+
+    def __init__(self, *args):
+        if args:
+            self._list = args
+        elif "PY_SOURCE_HIGHLIGHT_PATH" in os.environ:
+            self._list = os.environ["PY_SOURCE_HIGHLIGHT_PATH"].split(os.pathsep)
+        else:
+            self._list = [retrieve_data_dir()]
+
+    def __getitem__(self, item):
+        return self._list[item]
+
+    def __setitem__(self, item, value):
+        global LANG_MAP_CACHE
+        self._list[item] = value
+        LANG_MAP_CACHE.reset_maps()
+
+    def __delitem__(self, item):
+        global LANG_MAP_CACHE
+        del self._list[item]
+        LANG_MAP_CACHE.reset_maps()
+
+    def __len__(self):
+        return len(self._list)
+
+    def insert(self, i, item):
+        global LANG_MAP_CACHE
+        self._list.insert(i, item)
+        LANG_MAP_CACHE.reset_maps()
+
+    def __copy__(self):
+        # supposed to be singleton
+        return self
+
+    def __deepcopy__(self, memo):
+        # supposed to be singleton
+        return self
+
+
+# We have to initialize in this order
+PY_SOURCE_HIGHLIGHT_PATH = _PySourceHighlightPath()
+LANG_MAP_CACHE = _LangMapCache()

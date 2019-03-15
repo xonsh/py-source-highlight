@@ -1,0 +1,4 @@
+Diff = diff.lang
+diff = diff.lang
+patch = diff.lang
+udiff = diff.lang

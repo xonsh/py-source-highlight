@@ -57,7 +57,7 @@ def regex_to_rule(regex, token, action="#none"):
     return rule
 
 
-def genrulelines(lexer, state_key="root", level=0):
+def genrulelines(lexer, state_key="root", level=0, stack=("root")):
     lines = []
     indent = "  " * level
     for elem in lexer.tokens[state_key]:
@@ -73,6 +73,13 @@ def genrulelines(lexer, state_key="root", level=0):
             lines.append(indent + "state " + rule + " begin")
             lines.extend(genrulelines(lexer, state_key=key, level=level+1))
             lines.append(indent + "end")
+        elif n == 3 and elem[2] == "#push":
+            continue
+            #regex, token, _ = elem
+            #rule = regex_to_rule(regex, token)
+            #lines.append(indent + "state " + rule + " nested begin")
+            #lines.extend(genrulelines(lexer, state_key=key, level=level+1))
+            #lines.append(indent + "end")
         elif n == 3 and elem[2] == "#pop":
             regex, token, action = elem
             rule = regex_to_rule(regex, token, action)
@@ -123,7 +130,7 @@ def write_lang_map(lang_map, base="lang.map"):
 
 
 def genlangs():
-    lexer_names = ["diff", "ini", "pkgconfig"]
+    lexer_names = ["diff", "ini", "pkgconfig", "c"]
     lang_map = {}
     for lexer_name in lexer_names:
         print("Generating lexer " + lexer_name)

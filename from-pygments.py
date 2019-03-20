@@ -5,9 +5,10 @@ source-highlight.
 import os
 import inspect
 
-from pygments import lexer
 from pygments import lexers
 from pygments import styles
+from pygments.lexer import words, default
+from pygments.token import Token
 
 from xonsh.color_tools import make_palette, find_closest_color, rgb_to_256
 
@@ -39,7 +40,7 @@ CALLABLE_RULES = {
 
 def regex_to_rule(regex, token, action="#none"):
     # some prep
-    if isinstance(regex, lexer.words):
+    if isinstance(regex, words):
         regex = regex.get()
     # determine rule
     if callable(token):
@@ -66,6 +67,9 @@ def genrulelines(lexer, state_key="root", level=0, stack=("root")):
     lines = []
     indent = "  " * level
     for elem in lexer.tokens[state_key]:
+        if isinstance(elem, default):
+            # translate default statements into equivalent tuples
+            elem = ('', Token.Text, elem.state)
         n = len(elem)
         if isinstance(elem, str):
             lines.extend(genrulelines(lexer, state_key=elem, level=level))

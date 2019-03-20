@@ -5,6 +5,7 @@ source-highlight.
 import os
 import inspect
 
+from pygments import lexer
 from pygments import lexers
 from pygments import styles
 
@@ -37,6 +38,10 @@ CALLABLE_RULES = {
 }
 
 def regex_to_rule(regex, token, action="#none"):
+    # some prep
+    if isinstance(regex, lexer.words):
+        regex = regex.get()
+    # determine rule
     if callable(token):
         name = token.__qualname__
         translator = CALLABLE_RULES[name]

@@ -74,6 +74,25 @@ def token_from_using(callback, regex):
     return token
 
 
+# order might matter here
+UNCAPTURED_GROUP_TRANSLATORS = [
+    # (from, to)
+    ('(?!:)',  '[^:]'),
+    (r'(\.\.\.)?', r'(|\.\.\.)'),
+    (r'((?:[$a-zA-Z_]\w*|\.)+)', r'([$a-zA-Z_0-9.]+)'),
+    (r'([$a-zA-Z_]\w*(?:\.<\w+>)?)', r'([$a-zA-Z_]\w*|[$a-zA-Z_]\w*\.<\w+>)'),
+    (r'([$a-zA-Z_]\w*(?:\.<\w+>)?|\*)', r'([$a-zA-Z_]\w*|[$a-zA-Z_]\w*\.<\w+>|\*)'),
+]
+
+UNCAPTURED_GROUP_PREFIXES = [
+    "(?:",
+    "(?=",
+    "(?!",
+    "(?<=",
+    "(?<!",
+]
+
+
 def bygroup_translator(regex, bg):
     tokens = inspect.getclosurevars(bg).nonlocals['args']
     token_names = []
@@ -84,9 +103,15 @@ def bygroup_translator(regex, bg):
             group = top_level_groups(regex)[i]
             token = token_from_using(token, group)
             token_names.append(token_to_rulename(token))
+    # rewrite the regex, to make it safe for source-highlight
     if regex.startswith('^'):
         regex = regex[1:]
-    regex = regex.replace('(?!:)', '[^:]')
+    for bad, good in UNCAPTURED_GROUP_TRANSLATORS:
+        regex = regex.replace(bad, good)
+    for prefix in UNCAPTURED_GROUP_PREFIXES:
+        if prefix in regex:
+            raise ValueError(f"uncaptured prefix {prefix!r} is in regex '{regex}' "
+                             "that is being applied to a bygroup transformation")
     rule = "(" + ",".join(token_names) + ") = `" + regex + "`"
     return rule
 

@@ -1,6 +1,5 @@
-Ada = ada.lang
-ada = ada.lang
-ada2005 = ada.lang
-ada95 = ada.lang
-adb = ada.lang
-ads = ada.lang
+ADL = adl.lang
+adl = adl.lang
+adlf = adl.lang
+adls = adl.lang
+adlx = adl.lang

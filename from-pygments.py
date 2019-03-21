@@ -18,6 +18,7 @@ from xonsh.color_tools import make_palette, find_closest_color, rgb_to_256
 
 BASE_DIR = "share/py-source-highlight"
 CURRENT_LEXER = None
+LEXER_STACK = None
 
 
 def quote_safe(s):
@@ -84,6 +85,14 @@ UNCAPTURED_GROUP_TRANSLATORS = [
     # (from, to)
     ('(?!:)',  '[^:]'),
     (r'(\.\.\.)?', r'(|\.\.\.)'),
+    (r'((?:\d+\.\.)?(?:\d+|\*))', r'(\d+|\*|\d+\.\.\d+|\d+\.\.\*)'),
+    (r'((?:\s*;\s*(?:ordered|unordered|unique)){,2})',
+     r'(|\s*;\s*ordered|\s*;\s*unordered|\s*;\s*unique|'
+     r'\s*;\s*ordered\s*;\s*unique|\s*;\s*unique\s*;\s*ordered|'
+     r'\s*;\s*unordered\s*;\s*unique|\s*;\s*unique\s*;\s*unordered)'),
+    (r'(\w[\w-]*(?:\([^)\n]+\))?)',
+     r'(\w[\w-]*|\w[\w-]*\([^)\n]+\))'),
+    (r'((?:[,;])?)', r'(|[,;])'),
     (r'((?:[$a-zA-Z_]\w*|\.)+)', r'([$a-zA-Z_0-9.]+)'),
     (r'([$a-zA-Z_]\w*(?:\.<\w+>)?)', r'([$a-zA-Z_]\w*|[$a-zA-Z_]\w*\.<\w+>)'),
     (r'([$a-zA-Z_]\w*(?:\.<\w+>)?|\*)', r'([$a-zA-Z_]\w*|[$a-zA-Z_]\w*\.<\w+>|\*)'),
@@ -98,17 +107,14 @@ UNCAPTURED_GROUP_PREFIXES = [
 ]
 
 
-def bygroup_translator(regex, bg):
+def bygroup_translator(regex, bg, **kwargs):
     tokens = inspect.getclosurevars(bg).nonlocals['args']
     token_names = []
     for i, token in enumerate(tokens):
         if token in Token:
             token_names.append(token_to_rulename(token))
-        elif callable(token)  and 'using' in token.__qualname__:
-            try:
-                group = top_level_groups(regex)[i]
-            except:
-                import pdb; pdb.set_trace()
+        elif callable(token) and 'using' in token.__qualname__:
+            group = top_level_groups(regex)[i]
             token = token_from_using(token, group)
             token_names.append(token_to_rulename(token))
     # rewrite the regex, to make it safe for source-highlight
@@ -124,12 +130,25 @@ def bygroup_translator(regex, bg):
     return rule
 
 
+def using_translator(regex, callback, level=0, **kwargs):
+    global CURRENT_LEXER, LEXER_STACK
+    lexer_class = inspect.getclosurevars(callback).nonlocals['_other']
+    CURRENT_LEXER = lexer = lexer_class()
+    LEXER_STACK.append(lexer)
+    rules = genrulelines(lexer, level=level)
+    del LEXER_STACK[-1]
+    CURRENT_LEXER = LEXER_STACK[-1]
+    return rules
+
+
 CALLABLE_RULES = {
     "bygroup": bygroup_translator,
     "bygroups.<locals>.callback": bygroup_translator,
+    "using": using_translator,
+    "using.<locals>.callback": using_translator,
 }
 
-def regex_to_rule(regex, token, action="#none"):
+def regex_to_rule(regex, token, action="#none", level=0):
     # some prep
     if isinstance(regex, words):
         regex = regex.get()
@@ -137,7 +156,7 @@ def regex_to_rule(regex, token, action="#none"):
     if callable(token):
         name = token.__qualname__
         translator = CALLABLE_RULES[name]
-        rule = translator(regex, token)
+        rule = translator(regex, token, level=level)
     elif regex == "\\n" and action == "#pop":
         rule = token_to_rulename(token) + " = '$'"
     elif regex.endswith("\\n") or regex.endswith('.*'):
@@ -178,9 +197,23 @@ def group_regexes(elems):
 
 
 def genrulelines(lexer, state_key="root", level=0, stack=None, elems=None):
+    global LEXER_STACK
     lines = []
     indent = "  " * level
-    elems = lexer.tokens[state_key] if elems is None else elems
+    # find elems
+    if elems is None:
+        for l in reversed(LEXER_STACK):
+            if state_key in l.tokens:
+                elems = l.tokens[state_key]
+                break
+            for lexcls in inspect.getmro(l.__class__):
+                if not hasattr(lexcls, 'tokens'):
+                    break
+                if state_key in lexcls.tokens:
+                    elems = lexcls.tokens[state_key]
+                    break
+            if elems is not None:
+                break
     stack = ["root"] if stack is None else stack
     for elem in elems:
         if isinstance(elem, default):
@@ -198,8 +231,12 @@ def genrulelines(lexer, state_key="root", level=0, stack=None, elems=None):
                 lines.extend(genrulelines(lexer, state_key=elem, level=level))
         elif n == 2:
             regex, token = elem
-            lines.append(indent + regex_to_rule(regex, token))
-        elif n == 3 and elem[2] in lexer.tokens:
+            rule = regex_to_rule(regex, token, level=level+1)
+            if isinstance(rule, str):
+                lines.append(indent + rule)
+            else:
+                lines.extend(rule)
+        elif n == 3 and isinstance(elem[2], str) and not elem[2].startswith('#'):
             regex, token, key = elem
             rule = regex_to_rule(regex, token)
             lines.append(indent + "# " + key + " state")
@@ -292,15 +329,16 @@ def write_lang_map(lang_map, base="lang.map"):
 
 
 def genlangs():
-    global CURRENT_LEXER
+    global CURRENT_LEXER, LEXER_STACK
     #lexer_names = ["ActionScript3", "diff", "ini", "pkgconfig", "c"]
-    lexer_names = ["ada"]
+    lexer_names = ["adl"]
     #lexer_names = [x[0].replace(' ', '') for x in lexers.get_all_lexers()]
     lang_map = {}
     for lexer_name in lexer_names:
         print("Generating lexer " + lexer_name)
         lexer = lexers.get_lexer_by_name(lexer_name)
         CURRENT_LEXER = lexer
+        LEXER_STACK = [lexer]
         fname = genlang(lexer)
         base = os.path.basename(fname)
         add_to_lang_map(lexer, base, lang_map)

@@ -5,10 +5,19 @@ source-highlight.
 import os
 import inspect
 
+# monkey-patch pygments
+#from pygments import lexer
+#def using(_other, **kwargs):
+#    return {'__callback__': 'using', 'other': _other, 'kwargs': kwargs}
+
+#lexer.using = using
+
 from pygments import lexers
 from pygments import styles
-from pygments.lexer import words, default
+from pygments.lexer import words, default, using, this
 from pygments.token import Token
+
+import exrex
 
 from xonsh.color_tools import make_palette, find_closest_color, rgb_to_256
 
@@ -18,6 +27,22 @@ BASE_DIR = "share/py-source-highlight"
 
 def token_to_rulename(token):
     return str(token).replace(".", '_')
+
+
+def top_level_groups(s):
+    level = 0
+    groups = []
+    g = ''
+    for c in s:
+        g += c
+        if c == ')':
+            level -= 1
+            if level == 0:
+                groups.append(g)
+                g = ''
+        elif c == '(':
+            level += 1
+    return groups
 
 
 #
@@ -79,6 +104,7 @@ def genrulelines(lexer, state_key="root", level=0, stack=("root")):
         elif n == 3 and elem[2] in lexer.tokens:
             regex, token, key = elem
             rule = regex_to_rule(regex, token)
+            lines.append(indent + "# " + key + " state")
             lines.append(indent + "state " + rule + " begin")
             lines.extend(genrulelines(lexer, state_key=key, level=level+1))
             lines.append(indent + "end")

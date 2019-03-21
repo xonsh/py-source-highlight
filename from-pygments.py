@@ -117,10 +117,34 @@ def regex_to_rule(regex, token, action="#none"):
     return rule
 
 
-def genrulelines(lexer, state_key="root", level=0, stack=("root")):
+def _push_pop_other(elems):
+    push = []
+    pop = []
+    other = []
+    for elem in elems:
+        n = len(elem)
+        if n == 3 and elem[2] == "#push":
+            push.append(elem)
+        elif n == 3 and elem[2] == "#pop":
+            pop.append(elem)
+        else:
+            other.append(elem)
+    return push, pop, other
+
+
+def group_regexes(elems):
+    if len(elems) == 1:
+        return elems[0][0]
+    regexes = [elem[0].lstrip('^') for elem in elems]
+    grouped = '(' + ')|('.join(regexes) + ')'
+    return grouped
+
+
+def genrulelines(lexer, state_key="root", level=0, stack=("root"), elems=None):
     lines = []
     indent = "  " * level
-    for elem in lexer.tokens[state_key]:
+    elems = lexer.tokens[state_key] if elems is None else elems
+    for elem in elems:
         if isinstance(elem, default):
             # translate default statements into equivalent tuples
             elem = ('', Token.Text, elem.state)
@@ -138,12 +162,25 @@ def genrulelines(lexer, state_key="root", level=0, stack=("root")):
             lines.extend(genrulelines(lexer, state_key=key, level=level+1))
             lines.append(indent + "end")
         elif n == 3 and elem[2] == "#push":
-            continue
-            #regex, token, _ = elem
-            #rule = regex_to_rule(regex, token)
-            #lines.append(indent + "state " + rule + " nested begin")
-            #lines.extend(genrulelines(lexer, state_key=key, level=level+1))
-            #lines.append(indent + "end")
+            pushers, poppers, others = _push_pop_other(lexer.tokens[state_key])
+            push_delim = group_regexes(pushers)
+            pop_delim = group_regexes(poppers)
+            multiline = ('\n' in push_delim) or ('\n' in pop_delim)
+            token = elem[1]
+            token_name = token_to_rulename(token)
+            rule = token_name + " delim '" + push_delim + "' '" + pop_delim + "' "
+            if multiline:
+                rule += "multiline "
+            rule += "nested"
+            if len(others) == 0:
+                # no internal highlighting rules, just nested
+                lines.append(indent + rule)
+            else:
+                # nested with internal highlighting
+                lines.append(indent + "# nested " + state_key + " state")
+                lines.append(indent + "state " + rule + " begin")
+                lines.extend(genrulelines(lexer, elems=others, level=level+1))
+                lines.append(indent + "end")
         elif n == 3 and elem[2] == "#pop":
             regex, token, action = elem
             rule = regex_to_rule(regex, token, action)

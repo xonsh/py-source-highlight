@@ -20,6 +20,10 @@ BASE_DIR = "share/py-source-highlight"
 CURRENT_LEXER = None
 
 
+def quote_safe(s):
+    return s.replace("'", r"\x27")
+
+
 def token_to_rulename(token):
     return str(token).replace(".", '_')
 
@@ -110,10 +114,10 @@ def regex_to_rule(regex, token, action="#none"):
             regex = regex[:-2]
         if not regex:
             return ""
-        rule += " start '" + regex + "'"
+        rule += " start '" + quote_safe(regex) + "'"
     else:
         rule = token_to_rulename(token)
-        rule += " = '" + regex + "'"
+        rule += " = '" + quote_safe(regex) + "'"
     return rule
 
 
@@ -168,7 +172,8 @@ def genrulelines(lexer, state_key="root", level=0, stack=("root"), elems=None):
             multiline = ('\n' in push_delim) or ('\n' in pop_delim)
             token = elem[1]
             token_name = token_to_rulename(token)
-            rule = token_name + " delim '" + push_delim + "' '" + pop_delim + "' "
+            rule = token_name + " delim '" + quote_safe(push_delim) + "' '"
+            rule += quote_safe(pop_delim) + "' "
             if multiline:
                 rule += "multiline "
             rule += "nested"

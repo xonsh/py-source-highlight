@@ -61,12 +61,10 @@ def longest_sample(regex, n=100, limit=100):
 
 def token_from_using(callback, regex):
     global CURRENT_LEXER
-    closure = inspect.getclosurevars(callback)
     lexer = CURRENT_LEXER
     sample = longest_sample(regex)
     m = re.match(regex, sample)
     if m is None:
-        import pdb; pdb.set_trace()
         raise ValueError('cannot compute callback')
     _, token, _ = next(callback(lexer, m))
     return token
@@ -84,6 +82,7 @@ def bygroup_translator(regex, bg):
             token_names.append(token_to_rulename(token))
     if regex.startswith('^'):
         regex = regex[1:]
+    regex = regex.replace('(?!:)', '[^:]')
     rule = "(" + ",".join(token_names) + ") = `" + regex + "`"
     return rule
 

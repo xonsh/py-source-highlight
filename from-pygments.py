@@ -85,6 +85,7 @@ UNCAPTURED_GROUP_TRANSLATORS = [
     # (from, to)
     ('(?!:)',  '[^:]'),
     (r'(\.\.\.)?', r'(|\.\.\.)'),
+    (r'((?:\{.*\})?)', r'(|\{.*\})'),
     (r'((?:\d+\.\.)?(?:\d+|\*))', r'(\d+|\*|\d+\.\.\d+|\d+\.\.\*)'),
     (r'((?:\s*;\s*(?:ordered|unordered|unique)){,2})',
      r'(|\s*;\s*ordered|\s*;\s*unordered|\s*;\s*unique|'
@@ -331,8 +332,8 @@ def write_lang_map(lang_map, base="lang.map"):
 def genlangs():
     global CURRENT_LEXER, LEXER_STACK
     #lexer_names = ["ActionScript3", "diff", "ini", "pkgconfig", "c"]
-    lexer_names = ["adl"]
-    #lexer_names = [x[0].replace(' ', '') for x in lexers.get_all_lexers()]
+    #lexer_names = ["adl"]
+    lexer_names = [x[0].replace(' ', '') for x in lexers.get_all_lexers()]
     lang_map = {}
     for lexer_name in lexer_names:
         print("Generating lexer " + lexer_name)

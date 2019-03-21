@@ -31,16 +31,21 @@ def token_to_rulename(token):
 def top_level_groups(s):
     level = 0
     groups = []
+    inrange = False
     g = ''
     for c in s:
         g += c
-        if c == ')':
+        if not inrange and c == ')':
             level -= 1
             if level == 0:
                 groups.append(g)
                 g = ''
-        elif c == '(':
+        elif not inrange and c == '(':
             level += 1
+        elif c == '[':
+            inrange = True
+        elif inrange and c == ']':
+            inrange = False
     return groups
 
 
@@ -100,7 +105,10 @@ def bygroup_translator(regex, bg):
         if token in Token:
             token_names.append(token_to_rulename(token))
         elif callable(token)  and 'using' in token.__qualname__:
-            group = top_level_groups(regex)[i]
+            try:
+                group = top_level_groups(regex)[i]
+            except:
+                import pdb; pdb.set_trace()
             token = token_from_using(token, group)
             token_names.append(token_to_rulename(token))
     # rewrite the regex, to make it safe for source-highlight
@@ -179,7 +187,14 @@ def genrulelines(lexer, state_key="root", level=0, stack=("root"), elems=None):
             elem = ('', Token.Text, elem.state)
         n = len(elem)
         if isinstance(elem, str):
-            lines.extend(genrulelines(lexer, state_key=elem, level=level))
+            if elem == "root":
+                # go back to root
+                prev2 = set(lines[-1].split()[-2:])
+                if "exit" not in prev2 and "exitall" not in prev2:
+                    lines.append(indent + "exitall")
+            else:
+                # dive into new state
+                lines.extend(genrulelines(lexer, state_key=elem, level=level))
         elif n == 2:
             regex, token = elem
             lines.append(indent + regex_to_rule(regex, token))
@@ -220,6 +235,9 @@ def genrulelines(lexer, state_key="root", level=0, stack=("root"), elems=None):
                     _, _, n = action.partition(":")
                     line += " " + n
                 lines.append(line)
+        elif n == 3 and isinstance(elem[2], (tuple, list)):
+            # suppossed to push multiple states onto stack
+            pass
         else:
             raise ValueError("Could not interpret: " + repr(elem))
     lines = filter(str.strip, lines)
@@ -267,7 +285,8 @@ def write_lang_map(lang_map, base="lang.map"):
 def genlangs():
     global CURRENT_LEXER
     #lexer_names = ["ActionScript3", "diff", "ini", "pkgconfig", "c"]
-    lexer_names = [x[0].replace(' ', '') for x in lexers.get_all_lexers()]
+    lexer_names = ["ada"]
+    #lexer_names = [x[0].replace(' ', '') for x in lexers.get_all_lexers()]
     lang_map = {}
     for lexer_name in lexer_names:
         print("Generating lexer " + lexer_name)

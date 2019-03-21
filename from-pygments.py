@@ -3,14 +3,8 @@
 source-highlight.
 """
 import os
+import re
 import inspect
-
-# monkey-patch pygments
-#from pygments import lexer
-#def using(_other, **kwargs):
-#    return {'__callback__': 'using', 'other': _other, 'kwargs': kwargs}
-
-#lexer.using = using
 
 from pygments import lexers
 from pygments import styles
@@ -23,6 +17,7 @@ from xonsh.color_tools import make_palette, find_closest_color, rgb_to_256
 
 
 BASE_DIR = "share/py-source-highlight"
+CURRENT_LEXER = None
 
 
 def token_to_rulename(token):
@@ -45,13 +40,48 @@ def top_level_groups(s):
     return groups
 
 
+def exrex_safe(s):
+    """Translates a regex string to be exrex safe, for some missed cases"""
+    return s.replace('*?', '{0,100}').replace('+?', '{1,100}')
+
+
+def longest_sample(regex, n=100, limit=100):
+    regex = exrex_safe(regex)
+    s = ''
+    for i, t in zip(range(n), exrex.generate(regex, limit=limit)):
+        t = t.replace('\n', '').replace('\r', '')
+        if len(t) > len(s):
+            s = t
+    return s
+
+
 #
 # Language translators
 #
 
+def token_from_using(callback, regex):
+    global CURRENT_LEXER
+    closure = inspect.getclosurevars(callback)
+    lexer = CURRENT_LEXER
+    sample = longest_sample(regex)
+    m = re.match(regex, sample)
+    if m is None:
+        import pdb; pdb.set_trace()
+        raise ValueError('cannot compute callback')
+    _, token, _ = next(callback(lexer, m))
+    return token
+
+
 def bygroup_translator(regex, bg):
     tokens = inspect.getclosurevars(bg).nonlocals['args']
-    token_names = tuple(map(token_to_rulename, tokens))
+    token_names = []
+    for i, token in enumerate(tokens):
+        if token in Token:
+            token_names.append(token_to_rulename(token))
+        elif callable(token)  and 'using' in token.__qualname__:
+            group = top_level_groups(regex)[i]
+            token = token_from_using(token, group)
+            token_names.append(token_to_rulename(token))
     if regex.startswith('^'):
         regex = regex[1:]
     rule = "(" + ",".join(token_names) + ") = `" + regex + "`"
@@ -165,14 +195,17 @@ def write_lang_map(lang_map, base="lang.map"):
 
 
 def genlangs():
+    global CURRENT_LEXER
     lexer_names = ["diff", "ini", "pkgconfig", "c"]
     lang_map = {}
     for lexer_name in lexer_names:
         print("Generating lexer " + lexer_name)
         lexer = lexers.get_lexer_by_name(lexer_name)
+        CURRENT_LEXER = lexer
         fname = genlang(lexer)
         base = os.path.basename(fname)
         add_to_lang_map(lexer, base, lang_map)
+    CURRENT_LEXER = None
     write_lang_map(lang_map)
 
 

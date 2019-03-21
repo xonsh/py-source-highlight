@@ -8,7 +8,7 @@ import inspect
 
 from pygments import lexers
 from pygments import styles
-from pygments.lexer import words, default, using, this
+from pygments.lexer import words, default, using, this, DelegatingLexer
 from pygments.token import Token
 
 import exrex
@@ -197,26 +197,34 @@ def group_regexes(elems):
     return grouped
 
 
+def ensure_elems(lexer, state_key, elems):
+    global LEXER_STACK
+    if elems is not None:
+        return elems
+    if isinstance(lexer, DelegatingLexer):
+        return ensure_elems(lexer.language_lexer, state_key, elems)
+    for l in reversed(LEXER_STACK):
+        if hasattr(l, 'tokens') and state_key in l.tokens:
+            elems = l.tokens[state_key]
+            if elems is not None:
+                break
+        for lexcls in inspect.getmro(l.__class__):
+            if not hasattr(lexcls, 'tokens'):
+                break
+            if state_key in lexcls.tokens:
+                elems = lexcls.tokens[state_key]
+                if elems is not None:
+                    break
+        if elems is not None:
+            break
+    return elems
+
+
 def genrulelines(lexer, state_key="root", level=0, stack=None, elems=None):
     global LEXER_STACK
     lines = []
     indent = "  " * level
-    # find elems
-    if elems is None:
-        for l in reversed(LEXER_STACK):
-            if hasattr(l, 'tokens') and state_key in l.tokens:
-                elems = l.tokens[state_key]
-                if elems is not None:
-                    break
-            for lexcls in inspect.getmro(l.__class__):
-                if not hasattr(lexcls, 'tokens'):
-                    break
-                if state_key in lexcls.tokens:
-                    elems = lexcls.tokens[state_key]
-                    if elems is not None:
-                        break
-            if elems is not None:
-                break
+    elems = ensure_elems(lexer, state_key, elems)
     stack = ["root"] if stack is None else stack
     for elem in elems:
         if isinstance(elem, default):

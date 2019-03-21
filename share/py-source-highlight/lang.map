@@ -1,7 +1,12 @@
+ActionScript 3 = actionscript-3.lang
 C = c.lang
 Diff = diff.lang
 INI = ini.lang
 PkgConfig = pkgconfig.lang
+actionscript 3 = actionscript-3.lang
+actionscript3 = actionscript-3.lang
+as = actionscript-3.lang
+as3 = actionscript-3.lang
 c = c.lang
 cfg = ini.lang
 diff = diff.lang

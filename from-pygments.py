@@ -177,10 +177,11 @@ def group_regexes(elems):
     return grouped
 
 
-def genrulelines(lexer, state_key="root", level=0, stack=("root"), elems=None):
+def genrulelines(lexer, state_key="root", level=0, stack=None, elems=None):
     lines = []
     indent = "  " * level
     elems = lexer.tokens[state_key] if elems is None else elems
+    stack = ["root"] if stack is None else stack
     for elem in elems:
         if isinstance(elem, default):
             # translate default statements into equivalent tuples
@@ -235,9 +236,17 @@ def genrulelines(lexer, state_key="root", level=0, stack=("root"), elems=None):
                     _, _, n = action.partition(":")
                     line += " " + n
                 lines.append(line)
-        elif n == 3 and isinstance(elem[2], (tuple, list)):
+        elif n == 3 and isinstance(elem[2], (tuple, list)) and len(elem[2]) == 2:
             # suppossed to push multiple states onto stack
-            pass
+            regex, token, (key0, key1) = elem
+            rule = regex_to_rule(regex, token)
+            lines.append(indent + "# " + key1 + " state")
+            lines.append(indent + "state " + rule + " begin")
+            lines.extend(genrulelines(lexer, state_key=key1, level=level+1))
+            if key0 == "#pop":
+                lines.append(indent + "end")
+            else:
+                raise ValueError("Cannot pop stack")
         else:
             raise ValueError("Could not interpret: " + repr(elem))
     lines = filter(str.strip, lines)

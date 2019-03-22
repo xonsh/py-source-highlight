@@ -8,7 +8,7 @@ import inspect
 
 from pygments import lexers
 from pygments import styles
-from pygments.lexer import words, default, using, this, DelegatingLexer
+from pygments.lexer import words, default, using, this, DelegatingLexer, RegexLexer
 from pygments.token import Token
 
 import exrex
@@ -135,6 +135,32 @@ UNCAPTURED_GROUP_TRANSLATORS = [
     (r'((?:[\w*\s])+?(?:\s|[*]))', r'([\w*\s]+?\s|[\w*\s]+?[*])'),
     (r'((?:[^\W\d]|\$)[\w$]*)', r'([^\W\d][\w$]*|\$[\w$]*)'),
     (r'((?:[\w*\s])+?(?:\s|\*))', r'([\w*\s]+?\s|[\w*\s]+?\*)'),
+    (r'((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?(?:[&<>|]+|(?:(?:"[^\n\x1a"]*(?:"|(?=[\n\x1a])))|(?:(?:%(?:\*|(?:~[a-z]*(?:\$[^:]+:)?)?\d|[^%:\n\x1a]+(?::(?:~(?:-?\d+)?(?:,(?:-?\d+)?)?|(?:[^%\n\x1a^]|\^[^%\n\x1a])[^=\n\x1a]*=(?:[^%\n\x1a^]|\^[^%\n\x1a])*)?)?%))|(?:\^?![^!:\n\x1a]+(?::(?:~(?:-?\d+)?(?:,(?:-?\d+)?)?|(?:[^!\n\x1a^]|\^[^!\n\x1a])[^=\n\x1a]*=(?:[^!\n\x1a^]|\^[^!\n\x1a])*)?)?\^?!))|(?:(?:(?:\^[\n\x1a]?)?[^"\n\x1a&<>|\t\v\f\r ,;=\xa0])+))+))',
+     r'(\^[\n\x1a]{0,1}[\t\x0b\x0c\r ,;=\xa0]+{0,1}[&<>|]+|"[\^\n\x1a"]*"|[\n\x1a]|%*|~[a-z]*$[\^:]+:{0,1}{0,1}[\\d]|[\^%:\n\x1a]+:~-{0,1}[\\d]+{0,1},-{0,1}[\\d]+{0,1}{0,1}|[\^%\n\x1a\^]|\^[\^%\n\x1a][\^=\n\x1a]*=[\^%\n\x1a\^]|\^[\^%\n\x1a]*{0,1}{0,1}%|\^{0,1}![\w\^!:\n\x1a]+:~-{0,1}[\\d]+{0,1},-{0,1}[\\d]+{0,1}{0,1}|[\^!\n\x1a\^]|\^[\^!\n\x1a][\^=\n\x1a]*=[\^!\n\x1a\^]|\^[\^!\n\x1a]*{0,1}{0,1}\^{0,1}!|\^[\n\x1a]{0,1}{0,1}[\^"\n\x1a&<>\|\t\x0b\x0c\r ,;=\xa0]+)'),
+    (r'((?:(?<=[\n\x1a\t\v\f\r ,;=\xa0])(?<!^[\n\x1a])\d)?)',
+     r'([\n\x1a\t\v\f\r ,;=\xa0]|[\n\x1a\t\v\f\r ,;=\xa0]\^[\n\x1a])\d)'),
+    (r'((?:(?<=[\n\x1a\t\v\f\r ,;=\xa0])\d)?)',
+     r'(|[\n\x1a\t\v\f\r ,;=\xa0]\d)'),
+    (r'((?:(?<=[\n\x1a\t\v\f\r ,;=\xa0])(?<!\^[\n\x1a])\d)?)',
+     r'([\n\x1a\t\v\f\r ,;=\xa0]|[\n\x1a\t\v\f\r ,;=\xa0]\^[\n\x1a])\d)'),
+    (r'(for(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a])(?!\^))',
+     r'(for\^?[\t\v\f\r ,;=\xa0][^\^]|for[&<>|\n\x1a][^\^])'),
+    (r'((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+))',
+     r'(\^[\n\x1a][\t\v\f\r ,;=\xa0]|[\t\v\f\r ,;=\xa0])'),
+    (r'(/f(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))',
+     r'(/f\^?[\t\v\f\r ,;=\xa0]|/f[&<>|\n\x1a])'),
+    (r'((?:(?<=^[^:])|^[^:]?)[\t\v\f\r ,;=\xa0]*)',
+     r'(^[^:]{0,1}[\t\x0b\x0c\r ,;=\xa0]*)'),
+    (r'((?:(?:[^\n\x1a&<>|\t\v\f\r ,;=\xa0+:^]|\^[\n\x1a]?[\w\W])*))',
+     r'([^\n\x1a&<>|\t\x0b\x0c\r ,;=\xa0+:^]|\^[\n\x1a]{0,1}[\\w\\W]*)'),
+    (r'((?:(?:(?:%(?:\*|(?:~[a-z]*(?:\$[^:]+:)?)?\d|[^%:\n\x1a]+(?::(?:~(?:-?\d+)?(?:,(?:-?\d+)?)?|(?:[^%\n\x1a^]|\^[^%\n\x1a])[^=\n\x1a]*=(?:[^%\n\x1a^]|\^[^%\n\x1a])*)?)?%))|(?:\^?![^!:\n\x1a]+(?::(?:~(?:-?\d+)?(?:,(?:-?\d+)?)?|(?:[^!\n\x1a^]|\^[^!\n\x1a])[^=\n\x1a]*=(?:[^!\n\x1a^]|\^[^!\n\x1a])*)?)?\^?!))|[^"])*?")',
+     r'("[^"]*?")'),
+    (r"('(?:%%|(?:(?:%(?:\*|(?:~[a-z]*(?:\$[^:]+:)?)?\d|[^%:\n\x1a]+(?::(?:~(?:-?\d+)?(?:,(?:-?\d+)?)?|(?:[^%\n\x1a^]|\^[^%\n\x1a])[^=\n\x1a]*=(?:[^%\n\x1a^]|\^[^%\n\x1a])*)?)?%))|(?:\^?![^!:\n\x1a]+(?::(?:~(?:-?\d+)?(?:,(?:-?\d+)?)?|(?:[^!\n\x1a^]|\^[^!\n\x1a])[^=\n\x1a]*=(?:[^!\n\x1a^]|\^[^!\n\x1a])*)?)?\^?!))|[\w\W])*?')",
+     r"('[^']*?')"),
+    (r'(`(?:%%|(?:(?:%(?:\*|(?:~[a-z]*(?:\$[^:]+:)?)?\d|[^%:\n\x1a]+(?::(?:~(?:-?\d+)?(?:,(?:-?\d+)?)?|(?:[^%\n\x1a^]|\^[^%\n\x1a])[^=\n\x1a]*=(?:[^%\n\x1a^]|\^[^%\n\x1a])*)?)?%))|(?:\^?![^!:\n\x1a]+(?::(?:~(?:-?\d+)?(?:,(?:-?\d+)?)?|(?:[^!\n\x1a^]|\^[^!\n\x1a])[^=\n\x1a]*=(?:[^!\n\x1a^]|\^[^!\n\x1a])*)?)?\^?!))|[\w\W])*?`)',
+     r'(`[^`]*?`)'),
+    (r'(/l(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))',
+     r'(/l\^?[\t\v\f\r ,;=\xa0]|/l[&<>|\n\x1a])'),
     #(r'', r''),
     # this following arn't perfect translations, but may work
     (r'((?:(?:[^\W\d]|\$)[\w.\[\]$<>]*\s+)+?)',
@@ -163,26 +189,54 @@ def bygroup_translator(regex, bg, **kwargs):
             token = token_from_using(token, group)
             token_names.append(token_to_rulename(token))
     # rewrite the regex, to make it safe for source-highlight
+    orig_regex = regex
     if regex.startswith('^'):
         regex = regex[1:]
     for bad, good in UNCAPTURED_GROUP_TRANSLATORS:
         regex = regex.replace(bad, good)
     for prefix in UNCAPTURED_GROUP_PREFIXES:
         if prefix in regex:
+            groups = top_level_groups(orig_regex)
+            gmsg = "\n------\n".join(groups)
+            troups = top_level_groups(regex)
+            tmsg = "\n------\n".join(troups)
             raise ValueError(f"uncaptured prefix {prefix!r} is in regex '{regex}' "
-                             "that is being applied to a bygroup transformation")
+                             "that is being applied to a bygroup transformation. "
+                             "\n\nTop level groups of original regex:\n\n" + gmsg +
+                             "\n\nTop level groups of transformed regex:\n\n" + tmsg)
     rule = "(" + ",".join(token_names) + ") = `" + regex + "`"
     return rule
 
 
-def using_translator(regex, callback, level=0, **kwargs):
+def using_translator_other(regex, callback, nonlocals, level=0, **kwargs):
     global CURRENT_LEXER, LEXER_STACK
-    lexer_class = inspect.getclosurevars(callback).nonlocals['_other']
+    lexer_class = nonlocals['_other']
     CURRENT_LEXER = lexer = lexer_class()
     LEXER_STACK.append(lexer)
     rules = genrulelines(lexer, level=level)
     del LEXER_STACK[-1]
     CURRENT_LEXER = LEXER_STACK[-1]
+    return rules
+
+
+def using_translator_stack(regex, callback, nonlocals, level=0, **kwargs):
+    global CURRENT_LEXER, LEXER_STACK
+    stack = nonlocals['gt_kwargs']['stack']
+    lexer = CURRENT_LEXER
+    rules = genrulelines(lexer, state_key=stack[-1], level=level)
+    return rules
+
+
+def using_translator(regex, callback, level=0, **kwargs):
+    global CURRENT_LEXER, LEXER_STACK
+    nonlocals = inspect.getclosurevars(callback).nonlocals
+    if '_other' in nonlocals:
+        f = using_translator_other
+    elif 'gt_kwargs' in nonlocals and 'stack' in nonlocals['gt_kwargs']:
+        f = using_translator_stack
+    else:
+        raise ValueError('could not interpret using')
+    rules = f(regex, callback, nonlocals, level=level, **kwargs)
     return rules
 
 
@@ -461,8 +515,12 @@ def genlangs():
     lexer_names = list(lexer_lookups.keys())
     lang_map = {}
     for lexer_name in lexer_names:
-        print("Generating lexer " + lexer_name)
         lexer = get_lexer_from_lookup(lexer_name, lexer_lookups)
+        if not isinstance(lexer, (RegexLexer, DelegatingLexer)):
+            print("Skipping " + lexer_name + " because it is not "
+                  "a RegexLexer or Delegating lexer.")
+            continue
+        print("Generating lexer " + lexer_name)
         CURRENT_LEXER = lexer
         LEXER_STACK = [lexer]
         fname = genlang(lexer)

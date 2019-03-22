@@ -79,6 +79,7 @@ def token_from_using(callback, regex):
         sample = sample.replace('\n', '').replace('\r', '')
         m = re.match(regex, sample)
         if m is None:
+            import pdb; pdb.set_trace()
             raise ValueError('cannot compute callback')
     _, token, _ = next(callback(lexer, m))
     return token
@@ -113,11 +114,13 @@ UNCAPTURED_GROUP_TRANSLATORS = [
     (r'(alias |application |boolean |class |constant |date |file |integer |list |number |POSIX file |real |record |reference |RGB color |script |text |unit types|(?:Unicode )?text|string)\b',
      r'(alias \b|application \b|boolean \b|class \b|constant \b|date \b|file \b|integer \b|list \b|number \b|POSIX file \b|real \b|record \b|reference \b|RGB color \b|script \b|text \b|unit types\b|text\b|Unicode text\b|string\b)'),
     (r'((?:[\w*\s])+?(?:\s|[*]))', r'([\w*\s]+?\s|[\w*\s]+?[*])'),
-    # this isn't a perfect translation below, but it may work
+    (r'((?:[^\W\d]|\$)[\w$]*)', r'([^\W\d][\w$]*|\$[\w$]*)'),
+    (r'((?:[\w*\s])+?(?:\s|\*))', r'([\w*\s]+?\s|[\w*\s]+?\*)'),
+    #(r'', r''),
+    # this following arn't perfect translations, but may work
     (r'((?:(?:[^\W\d]|\$)[\w.\[\]$<>]*\s+)+?)',
      r'([^\W\d][\w.\[\]$<>]*\s+|\$[\w.\[\]$<>]*\s+)'),
-    (r'((?:[^\W\d]|\$)[\w$]*)', r'([^\W\d][\w$]*|\$[\w$]*)'),
-    #(r'', r''),
+    (r'((?:\s|//.*?\n|/\*.*?\*/)+)', r'(\s+|//.*?\n|/\*.*?\*/)'),
 ]
 
 UNCAPTURED_GROUP_PREFIXES = [

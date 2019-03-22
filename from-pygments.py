@@ -83,6 +83,7 @@ def token_from_using(callback, regex):
 # order might matter here
 UNCAPTURED_GROUP_TRANSLATORS = [
     # (from, to)
+    ('(!)?', '(|!)'),
     ('(?!:)',  '[^:]'),
     (r'(\.\.\.)?', r'(|\.\.\.)'),
     (r'((?:\{.*\})?)', r'(|\{.*\})'),
@@ -99,6 +100,9 @@ UNCAPTURED_GROUP_TRANSLATORS = [
     (r'([$a-zA-Z_]\w*(?:\.<\w+>)?|\*)', r'([$a-zA-Z_]\w*|[$a-zA-Z_]\w*\.<\w+>|\*)'),
     (r'([A-Za-z]\w*|\'(?:\\\\|\\\'|[^\']*)\'|[0-9]+|\*)',
      r'([A-Za-z]\w*|\'\\\\\'|\'\\\'\'|\'[^\']*\'|[0-9]+|\*)'),
+    (r'((?:protected|private|public|fragment)\b)?',
+     r'(|protected\b|private\b|public\b|fragment\b)'),
+    (r'(?:(\s+)(.*?))?', r'(|\s+)(.*?)'),
 ]
 
 UNCAPTURED_GROUP_PREFIXES = [

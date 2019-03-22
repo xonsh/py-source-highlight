@@ -65,22 +65,41 @@ def longest_sample(regex, n=100, limit=100):
     return s
 
 
+def getone_match(regex, n=100, replace_newlines=True):
+    m = None
+    safe = exrex_safe(regex)
+    while m is None and n > 0:
+        sample = exrex.getone(safe, n)
+        if replace_newlines:
+            sample = sample.replace('\n', '').replace('\r', '')
+        m = re.match(regex, sample)
+        n -= 1
+    return m
+
+
 #
 # Language translators
 #
 
+def get_match(regex):
+    sample = longest_sample(regex)
+    m = re.match(regex, sample)
+    if m is not None:
+        return m
+    m = getone_match(regex)
+    if m is not None:
+        return m
+    m = getone_match(regex, replace_newlines=False)
+    if m is not None:
+        return m
+    import pdb; pdb.set_trace()
+    raise ValueError('cannot compute callback')
+
+
 def token_from_using(callback, regex):
     global CURRENT_LEXER
     lexer = CURRENT_LEXER
-    sample = longest_sample(regex)
-    m = re.match(regex, sample)
-    if m is None:
-        sample = exrex.getone(exrex_safe(regex), 100)
-        sample = sample.replace('\n', '').replace('\r', '')
-        m = re.match(regex, sample)
-        if m is None:
-            import pdb; pdb.set_trace()
-            raise ValueError('cannot compute callback')
+    m = get_match(regex)
     _, token, _ = next(callback(lexer, m))
     return token
 
@@ -121,6 +140,7 @@ UNCAPTURED_GROUP_TRANSLATORS = [
     (r'((?:(?:[^\W\d]|\$)[\w.\[\]$<>]*\s+)+?)',
      r'([^\W\d][\w.\[\]$<>]*\s+|\$[\w.\[\]$<>]*\s+)'),
     (r'((?:\s|//.*?\n|/\*.*?\*/)+)', r'(\s+|//.*?\n|/\*.*?\*/)'),
+    (r'((?:.*\\\n)+|.*\n)', r'(.*\\\n|.*\n)'),
 ]
 
 UNCAPTURED_GROUP_PREFIXES = [
@@ -262,6 +282,13 @@ def genrulelines(lexer, state_key="root", level=0, stack=None, elems=None):
     indent = "  " * level
     elems = ensure_elems(lexer, state_key, elems)
     stack = ["root"] if stack is None else stack
+    if state_key == "root":
+        pass
+    elif state_key in stack:
+        # need to prevent recurrsion
+        return []
+    else:
+        stack.append(state_key)
     needle = lexer.needle if isinstance(lexer, DelegatingLexer) else None
     for elem in elems:
         if isinstance(elem, default):
@@ -273,7 +300,7 @@ def genrulelines(lexer, state_key="root", level=0, stack=None, elems=None):
                 return_to_root(lines, indent)
             else:
                 # dive into new state
-                lines.extend(genrulelines(lexer, state_key=elem, level=level))
+                lines.extend(genrulelines(lexer, state_key=elem, level=level, stack=stack))
         elif n >= 2 and needle is not None and elem[1] is needle:
             # in a delegating lexer that is pointing us elsewhere
             if n > 2:
@@ -284,7 +311,7 @@ def genrulelines(lexer, state_key="root", level=0, stack=None, elems=None):
             lines.append(indent + "state " + rule + " begin")
             # delegating lexers always delegate to root state
             LEXER_STACK.append(lexer.root_lexer)
-            lines.extend(genrulelines(lexer.root_lexer, level=level+1))
+            lines.extend(genrulelines(lexer.root_lexer, level=level+1, stack=stack))
             del LEXER_STACK[-1]
             lines.append(indent + "end")
         elif n == 2:
@@ -301,7 +328,7 @@ def genrulelines(lexer, state_key="root", level=0, stack=None, elems=None):
             rule = regex_to_rule(regex, token)
             lines.append(indent + "# " + key + " state")
             lines.append(indent + "state " + rule + " begin")
-            lines.extend(genrulelines(lexer, state_key=key, level=level+1))
+            lines.extend(genrulelines(lexer, state_key=key, level=level+1, stack=stack))
             lines.append(indent + "end")
         elif n == 3 and elem[2] == "#push":
             pushers, poppers, others = _push_pop_other(lexer.tokens[state_key])
@@ -322,7 +349,7 @@ def genrulelines(lexer, state_key="root", level=0, stack=None, elems=None):
                 # nested with internal highlighting
                 lines.append(indent + "# nested " + state_key + " state")
                 lines.append(indent + "state " + rule + " begin")
-                lines.extend(genrulelines(lexer, elems=others, level=level+1))
+                lines.extend(genrulelines(lexer, elems=others, level=level+1, stack=stack))
                 lines.append(indent + "end")
         elif n == 3 and isinstance(elem[2], str) and elem[2].startswith("#pop"):
             regex, token, action = elem
@@ -333,23 +360,36 @@ def genrulelines(lexer, state_key="root", level=0, stack=None, elems=None):
                     _, _, n = action.partition(":")
                     line += " " + n
                 lines.append(line)
-        elif n == 3 and isinstance(elem[2], (tuple, list)) and len(elem[2]) == 2:
+        elif n == 3 and isinstance(elem[2], (tuple, list)):
             # suppossed to push multiple states onto stack
-            regex, token, (key0, key1) = elem
-            rule = regex_to_rule(regex, token)
-            lines.append(indent + "# " + key1 + " state")
-            lines.append(indent + "state " + rule + " begin")
-            lines.extend(genrulelines(lexer, state_key=key1, level=level+1))
-            if key0 == "#pop":
-                pass
-            else:
-                lines.append(indent + "  # " + key0 + " state")
-                lines.append(indent + "  state " + rule + " begin")
-                lines.extend(genrulelines(lexer, state_key=key0, level=level+2))
-                lines.append(indent + "  end")
-            lines.append(indent + "end")
+            regex, token, keys = elem
+            nstack = 0
+            for i, key in enumerate(reversed(keys)):
+                rule = regex_to_rule(regex, token)
+                if key == "#pop":
+                    pass
+                elif key.startswith('#'):
+                    raise ValueError("Don't know how to interpret action")
+                elif key == "root":
+                    return_to_root(lines, "  " * (level+1+i))
+                else:
+                    lines.append(indent + "# " + key + " state")
+                    lines.append(indent + "state " + rule + " begin")
+                    lines.extend(genrulelines(lexer, state_key=key, level=level+1+i, stack=stack))
+                    lines.append(indent + "end")
+                    stack.append(key)
+                    nstack += 1
+                regex = ".*?"
+                token = Token.Text
+            del stack[-nstack:]
         else:
             raise ValueError("Could not interpret: " + repr(elem))
+    if len(stack) == 0:
+        stack.append("root")
+    elif len(stack) == 1:
+        pass
+    else:
+        del stack[-1]
     lines = filter(str.strip, lines)
     return lines
 

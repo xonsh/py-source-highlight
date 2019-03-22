@@ -103,6 +103,12 @@ UNCAPTURED_GROUP_TRANSLATORS = [
     (r'((?:protected|private|public|fragment)\b)?',
      r'(|protected\b|private\b|public\b|fragment\b)'),
     (r'(?:(\s+)(.*?))?', r'(|\s+)(.*?)'),
+    (r'\b((?:considering|ignoring)\s*)', r'(\bconsidering\s*|\bignoring\s*)'),
+    (r'(\s*(?:on|end)\s+)', r'(\s*on\s+|\s*end\s+)'),
+    (r'\b(as )', r'(\bas )'),
+    (r'(alias |application |boolean |class |constant |date |file |integer |list |number |POSIX file |real |record |reference |RGB color |script |text |unit types|(?:Unicode )?text|string)\b',
+     r'(alias \b|application \b|boolean \b|class \b|constant \b|date \b|file \b|integer \b|list \b|number \b|POSIX file \b|real \b|record \b|reference \b|RGB color \b|script \b|text \b|unit types\b|text\b|Unicode text\b|string\b)'),
+    #(r'', r''),
 ]
 
 UNCAPTURED_GROUP_PREFIXES = [

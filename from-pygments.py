@@ -5,7 +5,9 @@ source-highlight.
 import os
 import re
 import inspect
+import itertools
 from re import sre_parse
+from pprint import pprint
 
 from pygments import lexers
 from pygments import styles
@@ -341,6 +343,136 @@ class EchoTranslator:
 
 ECHO_TRANSLATOR = EchoTranslator()
 echo_translate = ECHO_TRANSLATOR.translate
+
+
+class NoncapturingTranslator(EchoTranslator):
+    """Translator that does not include non-capturing sub-expressions"""
+
+    def translate_branch(self, i, paren=True):
+        # TODO simplifications here
+        parts = [self.translate(x, paren=paren) for x in i[1][1]]
+        if not any(parts):
+            return ''
+        if i[1][0]:
+            if len(parts) == 1:
+                paren = False
+            prefix = ''
+        else:
+            paren = False
+        branch = '|'.join(parts)
+        if paren:
+            ret = '({0}{1})'.format(prefix, branch)
+        else:
+            ret = '{0}'.format(branch)
+        return ret
+
+
+NONCAPTURING_TRANSLATOR = NoncapturingTranslator()
+noncapturing_translate = NONCAPTURING_TRANSLATOR.translate
+
+
+class Transformer:
+    """Transforms regexes"""
+
+    def __init__(self, s):
+        self.original = s
+        if isinstance(s, str):
+            self.sre_obj = exrex.parse(s)
+        else:
+            self.sre_obj = s
+        self.result = None
+
+    def transform(self, sre_obj=None, result=None):
+        sre_obj = self.sre_obj if sre_obj is None else sre_obj
+        if result is None:
+            result = []
+        for i in sre_obj:
+            meth = getattr(self, 'transform_' + i[0].name.lower(), self.noop_transform)
+            if meth is None:
+                raise ValueError(f'could not find translation method for {i}')
+            meth(i, result)
+        self.result = result
+        return result
+
+    def noop_transform(self, i, result):
+        result.append(i)
+
+
+class NoncapturingRemovalTransfomrer(Transformer):
+    """Removes non-capturing expressions from the regex."""
+
+    def transform_subpattern(self, i, result):
+        subexpr = i[1][1]
+
+
+def remove_noncapturing_transform(s, ret=None):
+    """Removes non-capturing expressions from regex"""
+    sre_obj = exrex.parse(s) if isinstance(s, str) else s
+    ret = [] if ret is None else ret
+    need_to_expand = False
+    expansions = {}
+    for n, i in enumerate(sre_obj):
+        if i[0] == sre_parse.BRANCH:
+            parts = list(map(remove_noncapturing_transform, i[1][1]))
+            if not any(parts):
+                continue
+            ret.append((sre_parse.BRANCH, (i[1][0], parts)))
+        elif i[0] == sre_parse.SUBPATTERN:
+            if exrex.IS_PY36_OR_GREATER and i[0] == sre_parse.SUBPATTERN:
+                subexpr = i[1][3]
+            else:
+                raise RuntimeError('Python >=3.6 required')
+                # subexpr = i[1][1]  expr for Python < 3.6
+            parts = remove_noncapturing_transform(subexpr)
+            if len(parts) == 0:
+                continue
+            if i[1][0]:
+                # captured subpattern, just copy and return
+                ret.append((sre_parse.SUBPATTERN, (i[1][0], i[1][1], i[1][2], parts)))
+            else:
+                # uncaptured subexpression, may need to expand
+                if parts[0][0] == sre_parse.BRANCH:
+                    need_to_expand = True
+                    expansions[n] = parts[0][1][1]
+                    ret.append(n)
+                else:
+                    # non-branching, just add to current level
+                    ret.extend(parts)
+        #elif i[0] == sre_parse.ASSERT:
+        #    if i[1][0]:
+        #        ret += '(?={0})'.format(remove_noncapturing(i[1][1], paren=False))
+        #    else:
+        #        ret += '{0}'.format(remove_noncapturing(i[1][1], paren=paren))
+        #elif i[0] == sre_parse.ASSERT_NOT:
+        #    pass
+        else:
+            ret.append(i)
+    # OK do the expansions
+    if need_to_expand:
+        iters = []
+        ntimes = max(map(len, expansions.values()))
+        for i in ret:
+            if isinstance(i, int):
+                iters.append(expansions[i])
+            else:
+                iters.append(itertools.repeat(i, 1))
+        parts = []
+        for prod in itertools.product(*iters):
+            p = []
+            for elem in prod:
+                if isinstance(elem, list):
+                    p.extend(elem)
+                else:
+                    p.append(elem)
+            parts.append(p)
+        ret = [(sre_parse.BRANCH, (None, parts))]
+    return ret
+
+
+def remove_noncapturing(s):
+    sre_obj = remove_noncapturing_transform(s)
+    ret = noncapturing_translate(sre_obj)
+    return ret
 
 
 def bygroup_translator(regex, bg, **kwargs):
@@ -852,8 +984,14 @@ def main(args=None):
     genlangs()
     genstyles()
 
+
 def test():
-    print(repr(echo_translate(r'(if(?:(?=\()|(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))(?!wakka\^))((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)((?:/i(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))?)((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)((?:not(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))?)((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)')))
+    #print(repr(echo_translate(r'(if(?:(?=\()|(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))(?!wakka\^))((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)((?:/i(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))?)((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)((?:not(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))?)((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)')))
+    #pprint(exrex.parse(r'(if(?:(?=\()|(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))(?!wakka\^))((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)((?:/i(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))?)((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)((?:not(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))?)((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)'))
+    #pprint((exrex.parse(r'a(?:bc|de)f')))
+    #pprint((exrex.parse(r'a(?:bc|de)f')))
+    #pprint(remove_noncapturing(exrex.parse(r'a(?:bc|de)f')))
+    pprint(remove_noncapturing(r'a(?:bc|de)f(?:10|20)q'))
 
 
 if __name__ == "__main__":

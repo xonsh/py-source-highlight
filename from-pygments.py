@@ -430,7 +430,7 @@ def remove_noncapturing_transform(s, ret=None):
                 # captured subpattern, just copy and return
                 ret.append((sre_parse.SUBPATTERN, (i[1][0], i[1][1], i[1][2], parts)))
             else:
-                # uncaptured subexpression, may need to expand
+                # uncaptured subexpression, (?:...), may need to expand
                 if parts[0][0] == sre_parse.BRANCH:
                     need_to_expand = True
                     expansions[n] = parts[0][1][1]
@@ -438,11 +438,18 @@ def remove_noncapturing_transform(s, ret=None):
                 else:
                     # non-branching, just add to current level
                     ret.extend(parts)
-        #elif i[0] == sre_parse.ASSERT:
-        #    if i[1][0]:
-        #        ret += '(?={0})'.format(remove_noncapturing(i[1][1], paren=False))
-        #    else:
-        #        ret += '{0}'.format(remove_noncapturing(i[1][1], paren=paren))
+        elif i[0] == sre_parse.ASSERT:
+            subexpr = i[1][1]
+            parts = remove_noncapturing_transform(subexpr)
+            if len(parts) == 0:
+                continue
+            if parts[0][0] == sre_parse.BRANCH:
+                need_to_expand = True
+                expansions[n] = parts[0][1][1]
+                ret.append(n)
+            else:
+                # non-branching, just add to current level
+                ret.extend(parts)
         #elif i[0] == sre_parse.ASSERT_NOT:
         #    pass
         else:
@@ -991,7 +998,8 @@ def test():
     #pprint((exrex.parse(r'a(?:bc|de)f')))
     #pprint((exrex.parse(r'a(?:bc|de)f')))
     #pprint(remove_noncapturing(exrex.parse(r'a(?:bc|de)f')))
-    pprint(remove_noncapturing(r'a(?:bc|de)f(?:10|20)q'))
+    #pprint(remove_noncapturing(r'a(?=bc|de)f(?:10|20)q'))
+    pprint(remove_noncapturing(r'Isaac (?=Asimov)'))
 
 
 if __name__ == "__main__":

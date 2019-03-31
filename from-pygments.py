@@ -973,16 +973,13 @@ def main(args=None):
 
 
 def test():
-    #print(repr(echo_translate(r'(if(?:(?=\()|(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))(?!wakka\^))((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)((?:/i(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))?)((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)((?:not(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))?)((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)')))
-    #pprint(exrex.parse(r'(if(?:(?=\()|(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))(?!wakka\^))((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)((?:/i(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))?)((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)((?:not(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))?)((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)'))
-    #pprint((exrex.parse(r'a(?:bc|de)f')))
-    #pprint((exrex.parse(r'a(?:bc|de)f')))
-    #pprint(remove_noncapturing(exrex.parse(r'a(?:bc|de)f')))
-    #pprint(remove_noncapturing(r'a(?=bc|de)f(?:10|20)q'))
-    #pprint(exrex.parse(r'Isaac (?!B|A)'))
-    pprint(remove_noncapturing_transform(r'Isaac (?!B|A)'))
-    pprint(remove_noncapturing(r'Isaac (?!B|A)'))
-    #pprint(remove_noncapturing_transform(r'Isaac [^AB]{0,1}'))
+    r = r'Isaac (?!B|A)'
+    r = r'(if(?:(?=\()|(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))(?!\^))((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)((?:/i(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))?)((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)((?:not(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))?)((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)'
+    try:
+        pprint(remove_noncapturing_transform(r))
+    except:
+        pprint(exrex.parse(r))
+    pprint(remove_noncapturing(r))
 
 
 if __name__ == "__main__":

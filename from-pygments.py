@@ -230,10 +230,7 @@ class EchoTranslator:
         return ret
 
     def translate_in(self, i, paren=True):
-        prefix = ''
-        if len(i[1]) and i[1][0][0] == sre_parse.NEGATE:
-            prefix = '^'
-        ret = '[{0}{1}]'.format(prefix, self.translate(i[1], paren=paren))
+        ret = '[{0}]'.format(self.translate(i[1], paren=paren))
         return ret
 
     def translate_literal(self, i, paren=True):
@@ -319,8 +316,7 @@ class EchoTranslator:
         return ret
 
     def translate_negate(self, i, paren=True):
-        import pdb; pdb.set_trace()
-        raise NotImplementedError
+        return '^'
 
     def translate_range(self, i, paren=True):
         return '{0}-{1}'.format(chr(i[1][0]), chr(i[1][1]))
@@ -371,40 +367,6 @@ NONCAPTURING_TRANSLATOR = NoncapturingTranslator()
 noncapturing_translate = NONCAPTURING_TRANSLATOR.translate
 
 
-class Transformer:
-    """Transforms regexes"""
-
-    def __init__(self, s):
-        self.original = s
-        if isinstance(s, str):
-            self.sre_obj = exrex.parse(s)
-        else:
-            self.sre_obj = s
-        self.result = None
-
-    def transform(self, sre_obj=None, result=None):
-        sre_obj = self.sre_obj if sre_obj is None else sre_obj
-        if result is None:
-            result = []
-        for i in sre_obj:
-            meth = getattr(self, 'transform_' + i[0].name.lower(), self.noop_transform)
-            if meth is None:
-                raise ValueError(f'could not find translation method for {i}')
-            meth(i, result)
-        self.result = result
-        return result
-
-    def noop_transform(self, i, result):
-        result.append(i)
-
-
-class NoncapturingRemovalTransfomrer(Transformer):
-    """Removes non-capturing expressions from the regex."""
-
-    def transform_subpattern(self, i, result):
-        subexpr = i[1][1]
-
-
 def remove_noncapturing_transform(s, ret=None):
     """Removes non-capturing expressions from regex"""
     sre_obj = exrex.parse(s) if isinstance(s, str) else s
@@ -450,8 +412,26 @@ def remove_noncapturing_transform(s, ret=None):
             else:
                 # non-branching, just add to current level
                 ret.extend(parts)
-        #elif i[0] == sre_parse.ASSERT_NOT:
-        #    pass
+        elif i[0] == sre_parse.ASSERT_NOT:
+            subexpr = i[1][1]
+            parts = remove_noncapturing_transform(subexpr)
+            if len(parts) == 0:
+                continue
+            if parts[0][0] == sre_parse.IN:
+                ins = [(sre_parse.NEGATE, None)] + parts[0][1]
+                ret.append((sre_parse.MAX_REPEAT, (0, 1, [(sre_parse.IN, ins)])))
+            elif parts[0][0] == sre_parse.BRANCH:
+                literals = parts[0][1][1]
+                for literal in literals:
+                    if literal[0] != sre_parse.LITERAL:
+                        raise RuntimeError('Cannot translate expression')
+                ins = [(sre_parse.NEGATE, None)] + literals
+                ret.append((sre_parse.MAX_REPEAT, (0, 1, [(sre_parse.IN, ins)])))
+            elif len(parts) == 1 and parts[0][0] == sre_parse.LITERAL:
+                ret.append((sre_parse.MAX_REPEAT,
+                            (0, 1, [(sre_parse.NOT_LITERAL, parts[0][1])])))
+            else:
+                raise RuntimeError('cannot translation multi-character assert-not (?!...)')
         else:
             ret.append(i)
     # OK do the expansions
@@ -999,7 +979,10 @@ def test():
     #pprint((exrex.parse(r'a(?:bc|de)f')))
     #pprint(remove_noncapturing(exrex.parse(r'a(?:bc|de)f')))
     #pprint(remove_noncapturing(r'a(?=bc|de)f(?:10|20)q'))
-    pprint(remove_noncapturing(r'Isaac (?=Asimov)'))
+    #pprint(exrex.parse(r'Isaac (?!B|A)'))
+    pprint(remove_noncapturing_transform(r'Isaac (?!B|A)'))
+    pprint(remove_noncapturing(r'Isaac (?!B|A)'))
+    #pprint(remove_noncapturing_transform(r'Isaac [^AB]{0,1}'))
 
 
 if __name__ == "__main__":

@@ -313,6 +313,8 @@ class EchoTranslator:
             ret = '^'
         elif i[1] == sre_parse.AT_END:
             ret = '$'
+        else:
+            ret = ''
         return ret
 
     def translate_negate(self, i, paren=True):
@@ -390,6 +392,21 @@ def remove_noncapturing_transform(s, ret=None):
                 continue
             if i[1][0]:
                 # captured subpattern, just copy and return
+                if len(parts) == 1 and parts[0][0] == sre_parse.MAX_REPEAT and parts[0][1][2][0][0] == sre_parse.SUBPATTERN and parts[0][1][2][0][1][0] is None:
+                    # Matches things like "((?:hello)?)" and converts to "(|hello)"
+                    sub = list(parts[0][1][2][0][1][3])
+                    low = parts[0][1][0]
+                    high = parts[0][1][1] + 1
+                    if high < 102:
+                        branches = [sub*n for n in range(low, high)]
+                        parts = [(sre_parse.BRANCH, (None, branches))]
+                elif len(parts) == 1 and parts[0][0] == sre_parse.MAX_REPEAT and len(parts[0][1][2]) > 1:
+                    sub = list(parts[0][1][2])
+                    low = parts[0][1][0]
+                    high = parts[0][1][1] + 1
+                    if high < 102:
+                        branches = [sub*n for n in range(low, high)]
+                        parts = [(sre_parse.BRANCH, (None, branches))]
                 ret.append((sre_parse.SUBPATTERN, (i[1][0], i[1][1], i[1][2], parts)))
             else:
                 # uncaptured subexpression, (?:...), may need to expand
@@ -432,6 +449,12 @@ def remove_noncapturing_transform(s, ret=None):
                             (0, 1, [(sre_parse.NOT_LITERAL, parts[0][1])])))
             else:
                 raise RuntimeError('cannot translation multi-character assert-not (?!...)')
+        elif i[0] == sre_parse.MAX_REPEAT:
+            parts = remove_noncapturing_transform(i[1][2])
+            ret.append((sre_parse.MAX_REPEAT, (i[1][0], i[1][1], parts)))
+        elif i[0] == sre_parse.MIN_REPEAT:
+            parts = remove_noncapturing_transform(i[1][2])
+            ret.append((sre_parse.MIN_REPEAT, (i[1][0], i[1][1], parts)))
         else:
             ret.append(i)
     # OK do the expansions
@@ -476,8 +499,9 @@ def bygroup_translator(regex, bg, **kwargs):
     orig_regex = regex
     if regex.startswith("^"):
         regex = regex[1:]
-    for bad, good in UNCAPTURED_GROUP_TRANSLATORS:
-        regex = regex.replace(bad, good)
+    regex = remove_noncapturing(regex)
+    #for bad, good in UNCAPTURED_GROUP_TRANSLATORS:
+    #    regex = regex.replace(bad, good)
     for prefix in UNCAPTURED_GROUP_PREFIXES:
         if prefix in regex:
             groups = top_level_groups(orig_regex)
@@ -975,6 +999,10 @@ def main(args=None):
 def test():
     r = r'Isaac (?!B|A)'
     r = r'(if(?:(?=\()|(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))(?!\^))((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)((?:/i(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))?)((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)((?:not(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))?)((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)'
+    r = r'((?:(?<=[\n\x1a\t\v\f\r ,;=\xa0])\d)?)'
+    #r = r'(?<=[\n\x1a\t\v\f\r ,;=\xa0])\d'
+    pprint(exrex.parse(r))
+    print('-'*40)
     try:
         pprint(remove_noncapturing_transform(r))
     except:
@@ -983,5 +1011,5 @@ def test():
 
 
 if __name__ == "__main__":
-    #main()
-    test()
+    main()
+    #test()

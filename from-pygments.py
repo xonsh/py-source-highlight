@@ -4,6 +4,7 @@ source-highlight.
 """
 import os
 import re
+import sys
 import inspect
 import itertools
 from re import sre_parse
@@ -104,8 +105,14 @@ def get_match(regex):
 def token_from_using(callback, regex):
     global CURRENT_LEXER
     lexer = CURRENT_LEXER
-    m = get_match(regex)
-    _, token, _ = next(callback(lexer, m))
+    try:
+        m = get_match(regex)
+    except Exception:
+        return Token.Text
+    try:
+        _, token, _ = next(callback(lexer, m))
+    except StopIteration:
+        token = Token.Text
     return token
 
 
@@ -447,8 +454,17 @@ def remove_noncapturing_transform(s, ret=None):
             elif len(parts) == 1 and parts[0][0] == sre_parse.LITERAL:
                 ret.append((sre_parse.MAX_REPEAT,
                             (0, 1, [(sre_parse.NOT_LITERAL, parts[0][1])])))
+            elif len(parts) > 1 and parts[0][0] == sre_parse.LITERAL:
+                replacement = (sre_parse.MAX_REPEAT,
+                            (0, 1, [(sre_parse.NOT_LITERAL, parts[0][1])]))
+                msg = 'unsafe translation of {0!r} to {1!r}'
+                sys.stdout.flush()
+                print(msg.format(echo_translate(subexpr), echo_translate([replacement])),
+                      file=sys.stderr, flush=True)
+                ret.append(replacement)
             else:
-                raise RuntimeError('cannot translation multi-character assert-not (?!...)')
+                print(repr(echo_translate(subexpr)))
+                raise RuntimeError('cannot translate multi-character assert-not (?!...)')
         elif i[0] == sre_parse.MAX_REPEAT:
             parts = remove_noncapturing_transform(i[1][2])
             ret.append((sre_parse.MAX_REPEAT, (i[1][0], i[1][1], parts)))
@@ -499,7 +515,11 @@ def bygroup_translator(regex, bg, **kwargs):
     orig_regex = regex
     if regex.startswith("^"):
         regex = regex[1:]
-    regex = remove_noncapturing(regex)
+    try:
+        regex = remove_noncapturing(regex)
+    except Exception:
+        print(f'Original Regex is: {orig_regex!r}')
+        raise
     #for bad, good in UNCAPTURED_GROUP_TRANSLATORS:
     #    regex = regex.replace(bad, good)
     for prefix in UNCAPTURED_GROUP_PREFIXES:
@@ -747,6 +767,8 @@ def genrulelines(lexer, state_key="root", level=0, stack=None, elems=None):
                     return_to_root(lines, "  " * (level + 1 + i))
                 else:
                     lines.append(indent + "# " + key + " state")
+                    if not isinstance(rule, str):
+                        rule = next(rule)
                     lines.append(indent + "state " + rule + " begin")
                     lines.extend(
                         genrulelines(

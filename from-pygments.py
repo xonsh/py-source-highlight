@@ -628,6 +628,8 @@ def group_regexes(elems):
     return grouped
 
 
+VARIANTS = ('full', 'basic', 'none', 'full')
+
 def ensure_elems(lexer, state_key, elems):
     global LEXER_STACK
     if elems is not None:
@@ -642,13 +644,27 @@ def ensure_elems(lexer, state_key, elems):
             elems = l.tokens[state_key]
             if elems is not None:
                 break
+        elif hasattr(l, "tokens") and len(set(VARIANTS) & set(l.tokens.keys())) > 0:
+            for variant in VARIANTS:
+                elems = l.tokens.get(variant, {}).get(state_key, None)
+                if elems is not None:
+                    break
+        if elems is not None:
+            break
         for lexcls in inspect.getmro(l.__class__):
             if not hasattr(lexcls, "tokens"):
                 break
             if state_key in lexcls.tokens:
                 elems = lexcls.tokens[state_key]
-                if elems is not None:
-                    break
+            if elems is not None:
+                break
+            elif len(set(VARIANTS) & set(lexcls.tokens.keys())) > 0:
+                for variant in VARIANTS:
+                    elems = lexcls.tokens.get(variant, {}).get(state_key, None)
+                    if elems is not None:
+                        break
+            if elems is not None:
+                break
         if elems is not None:
             break
     return elems
@@ -799,7 +815,7 @@ def genlang(lexer):
     lang = "\n".join(lines) + "\n"
     norm_name = lexer.name.lower().replace(" ", "-").replace("+", "")
     fname = os.path.join(BASE_DIR, norm_name + ".lang")
-    with open(fname, "w") as f:
+    with open(fname, "w", errors='backslashreplace') as f:
         f.write(lang)
     return fname
 

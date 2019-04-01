@@ -116,104 +116,6 @@ def token_from_using(callback, regex):
     return token
 
 
-# order might matter here
-UNCAPTURED_GROUP_TRANSLATORS = [
-    # (from, to)
-    ("(!)?", "(|!)"),
-    ("(?!:)", "[^:]"),
-    (r"(?!\^)", "[^^]"),
-    (r"(\.\.\.)?", r"(|\.\.\.)"),
-    (r"((?:\{.*\})?)", r"(|\{.*\})"),
-    (r"((?:\d+\.\.)?(?:\d+|\*))", r"(\d+|\*|\d+\.\.\d+|\d+\.\.\*)"),
-    (
-        r"((?:\s*;\s*(?:ordered|unordered|unique)){,2})",
-        r"(|\s*;\s*ordered|\s*;\s*unordered|\s*;\s*unique|"
-        r"\s*;\s*ordered\s*;\s*unique|\s*;\s*unique\s*;\s*ordered|"
-        r"\s*;\s*unordered\s*;\s*unique|\s*;\s*unique\s*;\s*unordered)",
-    ),
-    (r"(\w[\w-]*(?:\([^)\n]+\))?)", r"(\w[\w-]*|\w[\w-]*\([^)\n]+\))"),
-    (r"((?:[,;])?)", r"(|[,;])"),
-    (r"((?:[$a-zA-Z_]\w*|\.)+)", r"([$a-zA-Z_0-9.]+)"),
-    (r"([$a-zA-Z_]\w*(?:\.<\w+>)?)", r"([$a-zA-Z_]\w*|[$a-zA-Z_]\w*\.<\w+>)"),
-    (r"([$a-zA-Z_]\w*(?:\.<\w+>)?|\*)", r"([$a-zA-Z_]\w*|[$a-zA-Z_]\w*\.<\w+>|\*)"),
-    (
-        r"([A-Za-z]\w*|\'(?:\\\\|\\\'|[^\']*)\'|[0-9]+|\*)",
-        r"([A-Za-z]\w*|\'\\\\\'|\'\\\'\'|\'[^\']*\'|[0-9]+|\*)",
-    ),
-    (
-        r"((?:protected|private|public|fragment)\b)?",
-        r"(|protected\b|private\b|public\b|fragment\b)",
-    ),
-    (r"(?:(\s+)(.*?))?", r"(|\s+)(.*?)"),
-    (r"\b((?:considering|ignoring)\s*)", r"(\bconsidering\s*|\bignoring\s*)"),
-    (r"(\s*(?:on|end)\s+)", r"(\s*on\s+|\s*end\s+)"),
-    (r"\b(as )", r"(\bas )"),
-    (
-        r"(alias |application |boolean |class |constant |date |file |integer |list |number |POSIX file |real |record |reference |RGB color |script |text |unit types|(?:Unicode )?text|string)\b",
-        r"(alias \b|application \b|boolean \b|class \b|constant \b|date \b|file \b|integer \b|list \b|number \b|POSIX file \b|real \b|record \b|reference \b|RGB color \b|script \b|text \b|unit types\b|text\b|Unicode text\b|string\b)",
-    ),
-    (r"((?:[\w*\s])+?(?:\s|[*]))", r"([\w*\s]+?\s|[\w*\s]+?[*])"),
-    (r"((?:[^\W\d]|\$)[\w$]*)", r"([^\W\d][\w$]*|\$[\w$]*)"),
-    (r"((?:[\w*\s])+?(?:\s|\*))", r"([\w*\s]+?\s|[\w*\s]+?\*)"),
-    (
-        r'((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?(?:[&<>|]+|(?:(?:"[^\n\x1a"]*(?:"|(?=[\n\x1a])))|(?:(?:%(?:\*|(?:~[a-z]*(?:\$[^:]+:)?)?\d|[^%:\n\x1a]+(?::(?:~(?:-?\d+)?(?:,(?:-?\d+)?)?|(?:[^%\n\x1a^]|\^[^%\n\x1a])[^=\n\x1a]*=(?:[^%\n\x1a^]|\^[^%\n\x1a])*)?)?%))|(?:\^?![^!:\n\x1a]+(?::(?:~(?:-?\d+)?(?:,(?:-?\d+)?)?|(?:[^!\n\x1a^]|\^[^!\n\x1a])[^=\n\x1a]*=(?:[^!\n\x1a^]|\^[^!\n\x1a])*)?)?\^?!))|(?:(?:(?:\^[\n\x1a]?)?[^"\n\x1a&<>|\t\v\f\r ,;=\xa0])+))+))',
-        r'(\^[\n\x1a]{0,1}[\t\x0b\x0c\r ,;=\xa0]+{0,1}[&<>|]+|"[\^\n\x1a"]*"|[\n\x1a]|%*|~[a-z]*$[\^:]+:{0,1}{0,1}[\\d]|[\^%:\n\x1a]+:~-{0,1}[\\d]+{0,1},-{0,1}[\\d]+{0,1}{0,1}|[\^%\n\x1a\^]|\^[\^%\n\x1a][\^=\n\x1a]*=[\^%\n\x1a\^]|\^[\^%\n\x1a]*{0,1}{0,1}%|\^{0,1}![\w\^!:\n\x1a]+:~-{0,1}[\\d]+{0,1},-{0,1}[\\d]+{0,1}{0,1}|[\^!\n\x1a\^]|\^[\^!\n\x1a][\^=\n\x1a]*=[\^!\n\x1a\^]|\^[\^!\n\x1a]*{0,1}{0,1}\^{0,1}!|\^[\n\x1a]{0,1}{0,1}[\^"\n\x1a&<>\|\t\x0b\x0c\r ,;=\xa0]+)',
-    ),
-    (
-        r"((?:(?<=[\n\x1a\t\v\f\r ,;=\xa0])(?<!^[\n\x1a])\d)?)",
-        r"([\n\x1a\t\v\f\r ,;=\xa0]|[\n\x1a\t\v\f\r ,;=\xa0]\^[\n\x1a])\d)",
-    ),
-    (r"((?:(?<=[\n\x1a\t\v\f\r ,;=\xa0])\d)?)", r"(|[\n\x1a\t\v\f\r ,;=\xa0]\d)"),
-    (
-        r"((?:(?<=[\n\x1a\t\v\f\r ,;=\xa0])(?<!\^[\n\x1a])\d)?)",
-        r"([\n\x1a\t\v\f\r ,;=\xa0]|[\n\x1a\t\v\f\r ,;=\xa0]\^[\n\x1a])\d)",
-    ),
-    (
-        r"(for(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a])(?!\^))",
-        r"(for\^?[\t\v\f\r ,;=\xa0][^\^]|for[&<>|\n\x1a][^\^])",
-    ),
-    (
-        r"((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+))",
-        r"(\^[\n\x1a][\t\v\f\r ,;=\xa0]|[\t\v\f\r ,;=\xa0])",
-    ),
-    (
-        r"(/f(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))",
-        r"(/f\^?[\t\v\f\r ,;=\xa0]|/f[&<>|\n\x1a])",
-    ),
-    (
-        r"((?:(?<=^[^:])|^[^:]?)[\t\v\f\r ,;=\xa0]*)",
-        r"(^[^:]{0,1}[\t\x0b\x0c\r ,;=\xa0]*)",
-    ),
-    (
-        r"((?:(?:[^\n\x1a&<>|\t\v\f\r ,;=\xa0+:^]|\^[\n\x1a]?[\w\W])*))",
-        r"([^\n\x1a&<>|\t\x0b\x0c\r ,;=\xa0+:^]|\^[\n\x1a]{0,1}[\\w\\W]*)",
-    ),
-    (
-        r'((?:(?:(?:%(?:\*|(?:~[a-z]*(?:\$[^:]+:)?)?\d|[^%:\n\x1a]+(?::(?:~(?:-?\d+)?(?:,(?:-?\d+)?)?|(?:[^%\n\x1a^]|\^[^%\n\x1a])[^=\n\x1a]*=(?:[^%\n\x1a^]|\^[^%\n\x1a])*)?)?%))|(?:\^?![^!:\n\x1a]+(?::(?:~(?:-?\d+)?(?:,(?:-?\d+)?)?|(?:[^!\n\x1a^]|\^[^!\n\x1a])[^=\n\x1a]*=(?:[^!\n\x1a^]|\^[^!\n\x1a])*)?)?\^?!))|[^"])*?")',
-        r'("[^"]*?")',
-    ),
-    (
-        r"('(?:%%|(?:(?:%(?:\*|(?:~[a-z]*(?:\$[^:]+:)?)?\d|[^%:\n\x1a]+(?::(?:~(?:-?\d+)?(?:,(?:-?\d+)?)?|(?:[^%\n\x1a^]|\^[^%\n\x1a])[^=\n\x1a]*=(?:[^%\n\x1a^]|\^[^%\n\x1a])*)?)?%))|(?:\^?![^!:\n\x1a]+(?::(?:~(?:-?\d+)?(?:,(?:-?\d+)?)?|(?:[^!\n\x1a^]|\^[^!\n\x1a])[^=\n\x1a]*=(?:[^!\n\x1a^]|\^[^!\n\x1a])*)?)?\^?!))|[\w\W])*?')",
-        r"('[^']*?')",
-    ),
-    (
-        r"(`(?:%%|(?:(?:%(?:\*|(?:~[a-z]*(?:\$[^:]+:)?)?\d|[^%:\n\x1a]+(?::(?:~(?:-?\d+)?(?:,(?:-?\d+)?)?|(?:[^%\n\x1a^]|\^[^%\n\x1a])[^=\n\x1a]*=(?:[^%\n\x1a^]|\^[^%\n\x1a])*)?)?%))|(?:\^?![^!:\n\x1a]+(?::(?:~(?:-?\d+)?(?:,(?:-?\d+)?)?|(?:[^!\n\x1a^]|\^[^!\n\x1a])[^=\n\x1a]*=(?:[^!\n\x1a^]|\^[^!\n\x1a])*)?)?\^?!))|[\w\W])*?`)",
-        r"(`[^`]*?`)",
-    ),
-    (
-        r"(/l(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))",
-        r"(/l\^?[\t\v\f\r ,;=\xa0]|/l[&<>|\n\x1a])",
-    ),
-    # (r'', r''),
-    # the following aren't perfect translations, but may work
-    (
-        r"((?:(?:[^\W\d]|\$)[\w.\[\]$<>]*\s+)+?)",
-        r"([^\W\d][\w.\[\]$<>]*\s+|\$[\w.\[\]$<>]*\s+)",
-    ),
-    (r"((?:\s|//.*?\n|/\*.*?\*/)+)", r"(\s+|//.*?\n|/\*.*?\*/)"),
-    (r"((?:.*\\\n)+|.*\n)", r"(.*\\\n|.*\n)"),
-]
-
 UNCAPTURED_GROUP_PREFIXES = ["(?:", "(?=", "(?!", "(?<=", "(?<!"]
 
 
@@ -545,8 +447,6 @@ def bygroup_translator(regex, bg, **kwargs):
     except Exception:
         print(f'Original Regex is: {orig_regex!r}')
         raise
-    #for bad, good in UNCAPTURED_GROUP_TRANSLATORS:
-    #    regex = regex.replace(bad, good)
     for prefix in UNCAPTURED_GROUP_PREFIXES:
         if prefix in regex:
             groups = top_level_groups(orig_regex)

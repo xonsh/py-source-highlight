@@ -5,6 +5,7 @@ source-highlight.
 import os
 import re
 import sys
+import time
 import inspect
 import itertools
 from re import sre_parse
@@ -71,8 +72,15 @@ def longest_sample(regex, n=100, limit=100):
     return s
 
 
-def getone_match(regex, n=100, replace_newlines=True):
+GETONE_MATCH_LENGTH = {
+    'TADS 3': 2,
+}
+
+
+def getone_match(regex, n=None, replace_newlines=True):
     m = None
+    if n is None:
+        n = GETONE_MATCH_LENGTH.get(CURRENT_LEXER.name, 100)
     safe = exrex_safe(regex)
     while m is None and n > 0:
         sample = exrex.getone(safe, n)
@@ -601,24 +609,30 @@ VARIANTS = (
 )
 
 
-def ensure_elems(lexer, state_key, elems):
+def _elems_from_delegating(lexer, state_key, elems):
+    LEXER_STACK.append(lexer.language_lexer)
+    elems = ensure_elems(lexer.language_lexer, state_key, elems, check_delegating=False)
+    del LEXER_STACK[-1]
+    if elems is None:
+        LEXER_STACK.append(lexer.root_lexer)
+        elems = ensure_elems(lexer.root_lexer, state_key, elems, check_delegating=False)
+        del LEXER_STACK[-1]
+    return elems
+
+
+def ensure_elems(lexer, state_key, elems, check_delegating=True):
     global LEXER_STACK
     if elems is not None:
         return elems
-    if isinstance(lexer, DelegatingLexer):
-        LEXER_STACK.append(lexer.language_lexer)
-        elems = ensure_elems(lexer.language_lexer, state_key, elems)
-        del LEXER_STACK[-1]
-        if elems is None:
-            LEXER_STACK.append(lexer.root_lexer)
-            elems = ensure_elems(lexer.root_lexer, state_key, elems)
-            del LEXER_STACK[-1]
-        return elems
+    if check_delegating and isinstance(lexer, DelegatingLexer):
+        return _elems_from_delegating(lexer, state_key, elems)
     for l in reversed(LEXER_STACK):
         if hasattr(l, "tokens") and state_key in l.tokens:
             elems = l.tokens[state_key]
             if elems is not None:
                 break
+        elif check_delegating and isinstance(l, DelegatingLexer):
+            elems = _elems_from_delegating(l, state_key, elems)
         elif hasattr(l, "tokens") and len(set(VARIANTS) & set(l.tokens.keys())) > 0:
             for variant in VARIANTS:
                 elems = l.tokens.get(variant, {}).get(state_key, None)
@@ -687,15 +701,23 @@ def genrulelines(lexer, state_key="root", level=0, stack=None, elems=None):
                 )
         elif n >= 2 and needle is not None and elem[1] is needle:
             # in a delegating lexer that is pointing us elsewhere
-            if n > 2:
-                raise NotImplementedError
-            regex, token = elem
+            if n == 2:
+                regex, token = elem
+                enter_state = 'root'
+            elif n == 3 and isinstance(elem[2], str):
+                regex, token, enter_state = elem
+            else:
+                sys.stdout.flush()
+                print(f'skipping the {elem[2:]} part of the lexer delegating to {elem[:2]}',
+                      file=sys.stderr, flush=True)
+                regex, token = elem[:2]
+                enter_state = 'root'
             rule = regex_to_rule(regex, token)
             lines.append(indent + "# delegating to " + lexer.root_lexer.name + " lexer")
             lines.append(indent + "state " + rule + " begin")
             # delegating lexers always delegate to root state
             LEXER_STACK.append(lexer.root_lexer)
-            lines.extend(genrulelines(lexer.root_lexer, level=level + 1, stack=stack))
+            lines.extend(genrulelines(lexer.root_lexer, state_key=enter_state, level=level + 1, stack=stack))
             del LEXER_STACK[-1]
             lines.append(indent + "end")
         elif n == 2:
@@ -705,7 +727,7 @@ def genrulelines(lexer, state_key="root", level=0, stack=None, elems=None):
                 lines.append(indent + rule)
             else:
                 lines.extend(rule)
-        elif n == 3 and isinstance(elem[2], str) and not elem[2] == "root":
+        elif n == 3 and isinstance(elem[2], str) and elem[2] == "root":
             return_to_root(lines, indent)
         elif n == 3 and isinstance(elem[2], str) and not elem[2].startswith("#"):
             regex, token, key = elem

@@ -130,16 +130,16 @@ class EchoTranslator:
         else:
             sre_obj = s
         # dispatch to the proper method
-        ret = ''
+        ret = ""
         for i in sre_obj:
-            meth = getattr(self, 'translate_' + i[0].name.lower(), None)
+            meth = getattr(self, "translate_" + i[0].name.lower(), None)
             if meth is None:
-                raise ValueError(f'could not find translation method for {i}')
+                raise ValueError(f"could not find translation method for {i}")
             ret += meth(i, paren=paren)
         return ret
 
     def translate_in(self, i, paren=True):
-        ret = '[{0}]'.format(self.translate(i[1], paren=paren))
+        ret = "[{0}]".format(self.translate(i[1], paren=paren))
         return ret
 
     def translate_literal(self, i, paren=True):
@@ -147,7 +147,7 @@ class EchoTranslator:
         c = chr(n)
         if c in sre_parse.SPECIAL_CHARS:
             # format literal special characters with hex codes
-            ret = '\\{0}'.format(c)
+            ret = "\\{0}".format(c)
         else:
             ret = c
         return ret
@@ -156,24 +156,24 @@ class EchoTranslator:
         return exrex.REVERSE_CATEGORIES[i[1]]
 
     def translate_any(self, i, paren=True):
-        return '.'
+        return "."
 
     def translate_branch(self, i, paren=True):
         # TODO simplifications here
         parts = [self.translate(x, paren=paren) for x in i[1][1]]
         if not any(parts):
-            return ''
+            return ""
         if i[1][0]:
             if len(parts) == 1:
                 paren = False
-            prefix = ''
+            prefix = ""
         else:
-            prefix = '?:'
-        branch = '|'.join(parts)
+            prefix = "?:"
+        branch = "|".join(parts)
         if paren:
-            ret = '({0}{1})'.format(prefix, branch)
+            ret = "({0}{1})".format(prefix, branch)
         else:
-            ret = '{0}'.format(branch)
+            ret = "{0}".format(branch)
         return ret
 
     def translate_subpattern(self, i, paren=True):
@@ -181,81 +181,81 @@ class EchoTranslator:
         if exrex.IS_PY36_OR_GREATER and i[0] == sre_parse.SUBPATTERN:
             subexpr = i[1][3]
         if i[1][0]:
-            ret = '({0})'.format(self.translate(subexpr, paren=False))
+            ret = "({0})".format(self.translate(subexpr, paren=False))
         else:
-            ret = '{0}'.format(self.translate(subexpr, paren=paren))
+            ret = "{0}".format(self.translate(subexpr, paren=paren))
         return ret
 
     def translate_not_literal(self, i, paren=True):
-        return '[^{0}]'.format(chr(i[1]))
+        return "[^{0}]".format(chr(i[1]))
 
     def translate_max_repeat(self, i, paren=True):
         if i[1][0] == i[1][1]:
-            range_str = '{{{0}}}'.format(i[1][0])
+            range_str = "{{{0}}}".format(i[1][0])
         else:
             if i[1][0] == 0 and i[1][1] - i[1][0] == sre_parse.MAXREPEAT:
-                range_str = '*'
+                range_str = "*"
             elif i[1][0] == 1 and i[1][1] - i[1][0] == sre_parse.MAXREPEAT - 1:
-                range_str = '+'
+                range_str = "+"
             else:
-                range_str = '{{{0},{1}}}'.format(i[1][0], i[1][1])
+                range_str = "{{{0},{1}}}".format(i[1][0], i[1][1])
         ret = self.translate(i[1][2], paren=paren) + range_str
         return ret
 
     def translate_min_repeat(self, i, paren=True):
         if i[1][0] == 0 and i[1][1] == sre_parse.MAXREPEAT:
-                range_str = '*?'
+            range_str = "*?"
         elif i[1][0] == 1 and i[1][1] == sre_parse.MAXREPEAT:
-                range_str = '+?'
+            range_str = "+?"
         elif i[1][1] == sre_parse.MAXREPEAT:
-                range_str = '{{{0},}}?'.format(i[1][0])
+            range_str = "{{{0},}}?".format(i[1][0])
         else:
-                range_str = '{{{0},{1}}}?'.format(i[1][0], i[1][1])
+            range_str = "{{{0},{1}}}?".format(i[1][0], i[1][1])
         ret = self.translate(i[1][2], paren=paren) + range_str
         return ret
 
     def translate_groupref(self, i, paren=True):
-        return '\\{0}'.format(i[1])
+        return "\\{0}".format(i[1])
 
     def translate_groupref_exists(self, i, paren=True):
         nameid, yesexpr, noexpr = i[1]
         yes = self.translate(yesexpr, paren=paren)
-        prefix = f'(?({nameid}){yes}'
+        prefix = f"(?({nameid}){yes}"
         if noexpr is None:
-            ret = prefix + ')'
+            ret = prefix + ")"
         else:
             no = self.translate(yesexpr, paren=paren)
-            ret = prefix + '|' + no + ')'
+            ret = prefix + "|" + no + ")"
         return ret
 
     def translate_at(self, i, paren=True):
         if i[1] == sre_parse.AT_BEGINNING:
-            ret = '^'
+            ret = "^"
         elif i[1] == sre_parse.AT_END:
-            ret = '$'
+            ret = "$"
         else:
-            ret = ''
+            ret = ""
         return ret
 
     def translate_negate(self, i, paren=True):
-        return '^'
+        return "^"
 
     def translate_range(self, i, paren=True):
-        return '{0}-{1}'.format(chr(i[1][0]), chr(i[1][1]))
+        return "{0}-{1}".format(chr(i[1][0]), chr(i[1][1]))
 
     def translate_assert(self, i, paren=True):
         if i[1][0]:
-            ret = '(?={0})'.format(self.translate(i[1][1], paren=False))
+            ret = "(?={0})".format(self.translate(i[1][1], paren=False))
         else:
-            ret = '{0}'.format(self.translate(i[1][1], paren=paren))
+            ret = "{0}".format(self.translate(i[1][1], paren=paren))
         return ret
 
     def translate_assert_not(self, i, paren=True):
         if i[1][0]:
-            ret = '(?!{0})'.format(self.translate(i[1][1], paren=False))
+            ret = "(?!{0})".format(self.translate(i[1][1], paren=False))
         else:
             raise NotImplementedError
-            #ret = '{0}'.format(self.translate(i[1][1], paren=paren))
+            # ret = '{0}'.format(self.translate(i[1][1], paren=paren))
         return ret
 
 
@@ -270,18 +270,18 @@ class NoncapturingTranslator(EchoTranslator):
         # TODO simplifications here
         parts = [self.translate(x, paren=paren) for x in i[1][1]]
         if not any(parts):
-            return ''
+            return ""
         if i[1][0]:
             if len(parts) == 1:
                 paren = False
-            prefix = ''
+            prefix = ""
         else:
             paren = False
-        branch = '|'.join(parts)
+        branch = "|".join(parts)
         if paren:
-            ret = '({0}{1})'.format(prefix, branch)
+            ret = "({0}{1})".format(prefix, branch)
         else:
-            ret = '{0}'.format(branch)
+            ret = "{0}".format(branch)
         return ret
 
 
@@ -305,27 +305,36 @@ def remove_noncapturing_transform(s, ret=None):
             if exrex.IS_PY36_OR_GREATER and i[0] == sre_parse.SUBPATTERN:
                 subexpr = i[1][3]
             else:
-                raise RuntimeError('Python >=3.6 required')
+                raise RuntimeError("Python >=3.6 required")
                 # subexpr = i[1][1]  expr for Python < 3.6
             parts = remove_noncapturing_transform(subexpr)
             if len(parts) == 0:
                 continue
             if i[1][0]:
                 # captured subpattern, just copy and return
-                if len(parts) == 1 and parts[0][0] == sre_parse.MAX_REPEAT and parts[0][1][2][0][0] == sre_parse.SUBPATTERN and parts[0][1][2][0][1][0] is None:
+                if (
+                    len(parts) == 1
+                    and parts[0][0] == sre_parse.MAX_REPEAT
+                    and parts[0][1][2][0][0] == sre_parse.SUBPATTERN
+                    and parts[0][1][2][0][1][0] is None
+                ):
                     # Matches things like "((?:hello)?)" and converts to "(|hello)"
                     sub = list(parts[0][1][2][0][1][3])
                     low = parts[0][1][0]
                     high = parts[0][1][1] + 1
                     if high < 102:
-                        branches = [sub*n for n in range(low, high)]
+                        branches = [sub * n for n in range(low, high)]
                         parts = [(sre_parse.BRANCH, (None, branches))]
-                elif len(parts) == 1 and parts[0][0] == sre_parse.MAX_REPEAT and len(parts[0][1][2]) > 1:
+                elif (
+                    len(parts) == 1
+                    and parts[0][0] == sre_parse.MAX_REPEAT
+                    and len(parts[0][1][2]) > 1
+                ):
                     sub = list(parts[0][1][2])
                     low = parts[0][1][0]
                     high = parts[0][1][1] + 1
                     if high < 102:
-                        branches = [sub*n for n in range(low, high)]
+                        branches = [sub * n for n in range(low, high)]
                         parts = [(sre_parse.BRANCH, (None, branches))]
                 ret.append((sre_parse.SUBPATTERN, (i[1][0], i[1][1], i[1][2], parts)))
             else:
@@ -363,35 +372,54 @@ def remove_noncapturing_transform(s, ret=None):
                 for n, literal in enumerate(literals):
                     if literal[0] == sre_parse.AT:
                         removals.append(n)
-                    elif isinstance(literal, list) and literal[0][0] == sre_parse.LITERAL:
-                        msg = 'unsafe translation of {0!r} to {1!r}'
+                    elif (
+                        isinstance(literal, list) and literal[0][0] == sre_parse.LITERAL
+                    ):
+                        msg = "unsafe translation of {0!r} to {1!r}"
                         sys.stdout.flush()
-                        print(msg.format(echo_translate(literal), echo_translate([literal[0]])),
-                            file=sys.stderr, flush=True)
+                        print(
+                            msg.format(
+                                echo_translate(literal), echo_translate([literal[0]])
+                            ),
+                            file=sys.stderr,
+                            flush=True,
+                        )
                         literals[n] = literal[0]
                     elif literal[0] != sre_parse.LITERAL:
-                        raise RuntimeError(f'Cannot translate expression: {literal}')
+                        raise RuntimeError(f"Cannot translate expression: {literal}")
                 for n in reversed(removals):
                     del literals[n]
                 ins = [(sre_parse.NEGATE, None)] + literals
                 ret.append((sre_parse.MAX_REPEAT, (0, 1, [(sre_parse.IN, ins)])))
             elif len(parts) == 1 and parts[0][0] == sre_parse.LITERAL:
-                ret.append((sre_parse.MAX_REPEAT,
-                            (0, 1, [(sre_parse.NOT_LITERAL, parts[0][1])])))
+                ret.append(
+                    (
+                        sre_parse.MAX_REPEAT,
+                        (0, 1, [(sre_parse.NOT_LITERAL, parts[0][1])]),
+                    )
+                )
             elif len(parts) == 1 and parts[0][0] == sre_parse.GROUPREF:
-                ret.append((sre_parse.MAX_REPEAT,
-                            (0, 0, [(sre_parse.GROUPREF, parts[0][1])])))
+                ret.append(
+                    (sre_parse.MAX_REPEAT, (0, 0, [(sre_parse.GROUPREF, parts[0][1])]))
+                )
             elif len(parts) > 1 and parts[0][0] == sre_parse.LITERAL:
-                replacement = (sre_parse.MAX_REPEAT,
-                            (0, 1, [(sre_parse.NOT_LITERAL, parts[0][1])]))
-                msg = 'unsafe translation of {0!r} to {1!r}'
+                replacement = (
+                    sre_parse.MAX_REPEAT,
+                    (0, 1, [(sre_parse.NOT_LITERAL, parts[0][1])]),
+                )
+                msg = "unsafe translation of {0!r} to {1!r}"
                 sys.stdout.flush()
-                print(msg.format(echo_translate(subexpr), echo_translate([replacement])),
-                      file=sys.stderr, flush=True)
+                print(
+                    msg.format(echo_translate(subexpr), echo_translate([replacement])),
+                    file=sys.stderr,
+                    flush=True,
+                )
                 ret.append(replacement)
             else:
                 print(repr(echo_translate(subexpr)))
-                raise RuntimeError('cannot translate multi-character assert-not (?!...)')
+                raise RuntimeError(
+                    "cannot translate multi-character assert-not (?!...)"
+                )
         elif i[0] == sre_parse.MAX_REPEAT:
             parts = remove_noncapturing_transform(i[1][2])
             ret.append((sre_parse.MAX_REPEAT, (i[1][0], i[1][1], parts)))
@@ -435,7 +463,7 @@ def bygroup_translator(regex, bg, **kwargs):
         if token in Token:
             token_names.append(token_to_rulename(token))
         elif callable(token) and "using" in token.__qualname__:
-            group = top_level_groups(regex)[:i+1][-1]
+            group = top_level_groups(regex)[: i + 1][-1]
             token = token_from_using(token, group)
             token_names.append(token_to_rulename(token))
     # rewrite the regex, to make it safe for source-highlight
@@ -445,7 +473,7 @@ def bygroup_translator(regex, bg, **kwargs):
     try:
         regex = remove_noncapturing(regex)
     except Exception:
-        print(f'Original Regex is: {orig_regex!r}')
+        print(f"Original Regex is: {orig_regex!r}")
         raise
     for prefix in UNCAPTURED_GROUP_PREFIXES:
         if prefix in regex:
@@ -516,10 +544,14 @@ def regex_to_rule(regex, token, action="#none", level=0):
             translator = CALLABLE_RULES[name]
             rule = translator(regex, token, level=level)
         else:
-            rule = ''
+            rule = ""
             sys.stdout.flush()
-            print(f'skipping rule "{regex}" with {token} because {name} does '
-                  'not have a translator', file=sys.stderr, flush=True)
+            print(
+                f'skipping rule "{regex}" with {token} because {name} does '
+                "not have a translator",
+                file=sys.stderr,
+                flush=True,
+            )
     elif regex == "\\n" and action == "#pop":
         rule = token_to_rulename(token) + " = '$'"
     elif regex.endswith("\\n") or regex.endswith(".*"):
@@ -559,7 +591,15 @@ def group_regexes(elems):
     return grouped
 
 
-VARIANTS = ('full', 'basic', 'none', '+i6t-not-inline', '+i6t-inline', '+i6t-use-option')
+VARIANTS = (
+    "full",
+    "basic",
+    "none",
+    "+i6t-not-inline",
+    "+i6t-inline",
+    "+i6t-use-option",
+)
+
 
 def ensure_elems(lexer, state_key, elems):
     global LEXER_STACK
@@ -620,7 +660,9 @@ def genrulelines(lexer, state_key="root", level=0, stack=None, elems=None):
     indent = "  " * level
     elems = ensure_elems(lexer, state_key, elems)
     if elems is None:
-        import pdb; pdb.set_trace()
+        import pdb
+
+        pdb.set_trace()
     stack = ["root"] if stack is None else stack
     if state_key == "root":
         pass
@@ -750,9 +792,9 @@ def genlang(lexer):
     lines = ["# autogenerated from pygments for " + lexer.name]
     lines.extend(genrulelines(lexer))
     lang = "\n".join(lines) + "\n"
-    norm_name = lexer.name.lower().replace(" ", "-").replace("+", "").replace('/', '')
+    norm_name = lexer.name.lower().replace(" ", "-").replace("+", "").replace("/", "")
     fname = os.path.join(BASE_DIR, norm_name + ".lang")
-    with open(fname, "w", errors='backslashreplace') as f:
+    with open(fname, "w", errors="backslashreplace") as f:
         f.write(lang)
     return fname
 
@@ -972,13 +1014,13 @@ def main(args=None):
 
 
 def test():
-    r = r'Isaac (?!B|A)'
-    r = r'(if(?:(?=\()|(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))(?!\^))((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)((?:/i(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))?)((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)((?:not(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))?)((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)'
-    r = r'((?:(?<=[\n\x1a\t\v\f\r ,;=\xa0])\d)?)'
-    #r = r'(?<=[\n\x1a\t\v\f\r ,;=\xa0])\d'
-    r = r'(?<=[-+/*%=<>&!^|~,(])(\\s*)(%([\\t ])(?:(?:\\\\\\3|(?!\\3).)*)\\3)'
+    r = r"Isaac (?!B|A)"
+    r = r"(if(?:(?=\()|(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))(?!\^))((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)((?:/i(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))?)((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)((?:not(?=\^?[\t\v\f\r ,;=\xa0]|[&<>|\n\x1a]))?)((?:(?:(?:\^[\n\x1a])?[\t\v\f\r ,;=\xa0])+)?)"
+    r = r"((?:(?<=[\n\x1a\t\v\f\r ,;=\xa0])\d)?)"
+    # r = r'(?<=[\n\x1a\t\v\f\r ,;=\xa0])\d'
+    r = r"(?<=[-+/*%=<>&!^|~,(])(\\s*)(%([\\t ])(?:(?:\\\\\\3|(?!\\3).)*)\\3)"
     pprint(exrex.parse(r))
-    print('-'*40)
+    print("-" * 40)
     try:
         pprint(remove_noncapturing_transform(r))
     except:
@@ -988,4 +1030,4 @@ def test():
 
 if __name__ == "__main__":
     main()
-    #test()
+    # test()

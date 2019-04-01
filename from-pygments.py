@@ -315,6 +315,17 @@ class EchoTranslator:
     def translate_groupref(self, i, paren=True):
         return '\\{0}'.format(i[1])
 
+    def translate_groupref_exists(self, i, paren=True):
+        nameid, yesexpr, noexpr = i[1]
+        yes = self.translate(yesexpr, paren=paren)
+        prefix = f'(?({nameid}){yes}'
+        if noexpr is None:
+            ret = prefix + ')'
+        else:
+            no = self.translate(yesexpr, paren=paren)
+            ret = prefix + '|' + no + ')'
+        return ret
+
     def translate_at(self, i, paren=True):
         if i[1] == sre_parse.AT_BEGINNING:
             ret = '^'
@@ -446,9 +457,20 @@ def remove_noncapturing_transform(s, ret=None):
                 ret.append((sre_parse.MAX_REPEAT, (0, 1, [(sre_parse.IN, ins)])))
             elif parts[0][0] == sre_parse.BRANCH:
                 literals = parts[0][1][1]
-                for literal in literals:
-                    if literal[0] != sre_parse.LITERAL:
-                        raise RuntimeError('Cannot translate expression')
+                removals = []
+                for n, literal in enumerate(literals):
+                    if literal[0] == sre_parse.AT:
+                        removals.append(n)
+                    elif isinstance(literal, list) and literal[0][0] == sre_parse.LITERAL:
+                        msg = 'unsafe translation of {0!r} to {1!r}'
+                        sys.stdout.flush()
+                        print(msg.format(echo_translate(literal), echo_translate([literal[0]])),
+                            file=sys.stderr, flush=True)
+                        literals[n] = literal[0]
+                    elif literal[0] != sre_parse.LITERAL:
+                        raise RuntimeError(f'Cannot translate expression: {literal}')
+                for n in reversed(removals):
+                    del literals[n]
                 ins = [(sre_parse.NEGATE, None)] + literals
                 ret.append((sre_parse.MAX_REPEAT, (0, 1, [(sre_parse.IN, ins)])))
             elif len(parts) == 1 and parts[0][0] == sre_parse.LITERAL:
@@ -637,7 +659,7 @@ def group_regexes(elems):
     return grouped
 
 
-VARIANTS = ('full', 'basic', 'none', 'full')
+VARIANTS = ('full', 'basic', 'none', '+i6t-not-inline', '+i6t-inline', '+i6t-use-option')
 
 def ensure_elems(lexer, state_key, elems):
     global LEXER_STACK

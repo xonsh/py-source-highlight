@@ -694,6 +694,8 @@ def genrulelines(lexer, state_key="root", level=0, stack=None, elems=None):
         if isinstance(elem, str):
             if elem == "root":
                 return_to_root(lines, indent)
+            elif elem == 'statements' and state_key == 'statement':
+                import pdb; pdb.set_trace()
             else:
                 # dive into new state
                 lines.extend(
@@ -739,7 +741,8 @@ def genrulelines(lexer, state_key="root", level=0, stack=None, elems=None):
             )
             lines.append(indent + "end")
         elif n == 3 and elem[2] == "#push":
-            pushers, poppers, others = _push_pop_other(lexer.tokens[state_key])
+            new_elems = ensure_elems(lexer, state_key, None)
+            pushers, poppers, others = _push_pop_other(new_elems)
             push_delim = group_regexes(pushers)
             pop_delim = group_regexes(poppers)
             multiline = ("\n" in push_delim) or ("\n" in pop_delim)
